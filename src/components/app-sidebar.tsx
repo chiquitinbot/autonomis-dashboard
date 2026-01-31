@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, CheckSquare, Mail, Calendar, TrendingUp, FileText, Settings, Crab } from "lucide-react"
+import { Home, CheckSquare, Mail, Calendar, TrendingUp, FileText, Settings } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
