@@ -1,6 +1,8 @@
 "use client"
 
-import { Home, CheckSquare, Mail, Calendar, TrendingUp, FileText, Settings } from "lucide-react"
+import { Home, CheckSquare, Settings } from "lucide-react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Sidebar,
   SidebarContent,
@@ -17,13 +19,11 @@ import {
 const items = [
   { title: "Overview", url: "/", icon: Home },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Emails", url: "/emails", icon: Mail },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Trading", url: "/trading", icon: TrendingUp },
-  { title: "Notes", url: "/notes", icon: FileText },
 ]
 
 export function AppSidebar() {
+  const pathname = usePathname()
+  
   return (
     <Sidebar className="border-r border-border/40">
       <SidebarHeader className="border-b border-border/40 p-4">
@@ -44,11 +44,11 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url} className="flex items-center gap-3">
+                  <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <Link href={item.url} className="flex items-center gap-3">
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -57,16 +57,9 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-border/40 p-4">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <a href="/settings" className="flex items-center gap-3">
-                <Settings className="h-4 w-4" />
-                <span>Settings</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <p className="text-xs text-muted-foreground text-center">
+          Built with 🦀 by Chiquitín
+        </p>
       </SidebarFooter>
     </Sidebar>
   )
