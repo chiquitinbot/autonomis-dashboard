@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, MessageSquare, Calendar, User, Tag, MoreHorizontal, Search, Filter } from "lucide-react"
+import { Plus, MessageSquare, Search, Filter, User, Tag } from "lucide-react"
 
 type Priority = "critical" | "high" | "medium" | "low"
 type Status = "backlog" | "todo" | "in-progress" | "review" | "done"
@@ -39,82 +39,84 @@ interface Ticket {
 
 const initialTickets: Ticket[] = [
   {
-    id: "AUT-001",
-    title: "Review JEALT proposal",
-    description: "Review and provide feedback on the JEALT partnership proposal document",
+    id: "MONEY-001",
+    title: "Monitor CLANKER position",
+    description: "Track CLANKER token position on Base. Entry: ~$45. Current: down ~7%. HODL strategy.",
+    status: "in-progress",
+    priority: "high",
+    assignee: "Chiquitín",
+    labels: ["trading", "crypto", "base"],
+    comments: [
+      { id: "c1", author: "Chiquitín", content: "Position opened. Monitoring daily.", createdAt: new Date("2026-01-31") }
+    ],
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
+  },
+  {
+    id: "MONEY-002",
+    title: "Research new Base opportunities",
+    description: "Find alpha on Base chain. Look for undervalued tokens, new launches, and trading opportunities.",
     status: "in-progress",
     priority: "critical",
-    assignee: "Bernardo",
-    labels: ["partnership", "urgent"],
+    assignee: "Chiquitín",
+    labels: ["research", "alpha", "base"],
     comments: [
-      { id: "c1", author: "Chiquitín", content: "I've reviewed the initial sections. Looks promising!", createdAt: new Date() }
+      { id: "c2", author: "Chiquitín", content: "Researching memecoins and DeFi opportunities on Base...", createdAt: new Date("2026-01-31") }
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
   },
   {
-    id: "AUT-002",
-    title: "IBM Partnership call preparation",
-    description: "Prepare talking points and materials for the IBM partnership call",
+    id: "MONEY-003",
+    title: "Build trading automation",
+    description: "Create automated trading tools for faster execution. Integrate with DEX aggregators like Odos.",
     status: "todo",
-    priority: "high",
-    assignee: "Bernardo",
-    labels: ["partnership", "IBM"],
+    priority: "medium",
+    assignee: "Chiquitín",
+    labels: ["automation", "tools"],
     comments: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
   },
   {
-    id: "AUT-003",
-    title: "Update COE documentation",
-    description: "Update the Center of Excellence documentation with latest processes",
+    id: "MONEY-004",
+    title: "Polymarket strategy",
+    description: "Research prediction market strategies. Find high-probability bets.",
     status: "backlog",
     priority: "medium",
-    assignee: "Bernardo",
-    labels: ["documentation", "COE"],
-    comments: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "AUT-004",
-    title: "Polymarket strategy research",
-    description: "Research prediction market strategies for potential opportunities",
-    status: "in-progress",
-    priority: "medium",
     assignee: "Chiquitín",
-    labels: ["trading", "research"],
-    comments: [
-      { id: "c2", author: "Chiquitín", content: "Starting research on prediction markets...", createdAt: new Date() }
-    ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "AUT-005",
-    title: "Set up email automation",
-    description: "Configure automated email responses and categorization",
-    status: "review",
-    priority: "low",
-    assignee: "Chiquitín",
-    labels: ["automation"],
+    labels: ["polymarket", "research"],
     comments: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
   },
   {
-    id: "AUT-006",
-    title: "CLANKER position monitoring",
-    description: "Monitor CLANKER token position and market conditions",
+    id: "MONEY-005",
+    title: "Wallet setup complete",
+    description: "Base wallet configured: 0x6882143A95BB00D0bD67E2a6f4539bAeA4Aa52e8",
     status: "done",
     priority: "high",
     assignee: "Chiquitín",
-    labels: ["trading", "crypto"],
+    labels: ["setup", "wallet"],
     comments: [
-      { id: "c3", author: "Chiquitín", content: "Position opened at $45, currently monitoring.", createdAt: new Date() }
+      { id: "c3", author: "Chiquitín", content: "Wallet ready. Trading tools configured.", createdAt: new Date("2026-01-31") }
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
+  },
+  {
+    id: "MONEY-006",
+    title: "Dashboard deployed",
+    description: "Autonomis Dashboard live at dashboard.autonomis.co",
+    status: "done",
+    priority: "medium",
+    assignee: "Chiquitín",
+    labels: ["infrastructure"],
+    comments: [
+      { id: "c4", author: "Chiquitín", content: "Next.js + Vercel. Clean and fast.", createdAt: new Date("2026-01-31") }
+    ],
+    createdAt: new Date("2026-01-31"),
+    updatedAt: new Date("2026-01-31"),
   },
 ]
 
@@ -189,8 +191,8 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground">Manage your tickets and track progress</p>
+          <h1 className="text-3xl font-bold tracking-tight">🎯 Mission: $1,000,000</h1>
+          <p className="text-muted-foreground">Tracking our path to making you a millionaire</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -206,6 +208,26 @@ export default function TasksPage() {
           </Button>
         </div>
       </div>
+
+      {/* Portfolio Summary */}
+      <Card className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Current Portfolio</p>
+              <p className="text-2xl font-bold">$18.55</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Target</p>
+              <p className="text-2xl font-bold text-green-500">$1,000,000</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-muted-foreground">Progress</p>
+              <p className="text-lg font-mono">0.002%</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Kanban Board */}
       <div className="grid grid-cols-5 gap-4">
@@ -226,7 +248,7 @@ export default function TasksPage() {
             </div>
 
             {/* Column Content */}
-            <div className="space-y-2 min-h-[500px] rounded-lg bg-muted/30 p-2">
+            <div className="space-y-2 min-h-[400px] rounded-lg bg-muted/30 p-2">
               {tickets
                 .filter(t => t.status === column.id)
                 .map((ticket) => (
@@ -257,8 +279,8 @@ export default function TasksPage() {
                           <MessageSquare className="h-3 w-3" />
                           {ticket.comments.length}
                         </div>
-                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-[10px] text-white font-medium">
-                          {ticket.assignee.charAt(0)}
+                        <div className="h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-[10px] text-white font-medium">
+                          🦀
                         </div>
                       </div>
                     </CardContent>
@@ -316,7 +338,7 @@ export default function TasksPage() {
                     <label className="text-sm text-muted-foreground flex items-center gap-2">
                       <Tag className="h-4 w-4" /> Labels
                     </label>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                       {selectedTicket.labels.map((label) => (
                         <Badge key={label} variant="outline">{label}</Badge>
                       ))}
@@ -333,8 +355,8 @@ export default function TasksPage() {
                   <div className="space-y-3 max-h-48 overflow-y-auto">
                     {selectedTicket.comments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
-                          {comment.author.charAt(0)}
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
+                          {comment.author === "Chiquitín" ? "🦀" : comment.author.charAt(0)}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
