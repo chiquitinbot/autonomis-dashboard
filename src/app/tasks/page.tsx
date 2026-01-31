@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -12,113 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, MessageSquare, Search, Filter, User, Tag } from "lucide-react"
+import { Plus, MessageSquare, Search, Filter, User, Tag, Loader2 } from "lucide-react"
+import { supabase, type Ticket, type Comment } from "@/lib/supabase"
 
 type Priority = "critical" | "high" | "medium" | "low"
 type Status = "backlog" | "todo" | "in-progress" | "review" | "done"
-
-interface Comment {
-  id: string
-  author: string
-  content: string
-  createdAt: Date
-}
-
-interface Ticket {
-  id: string
-  title: string
-  description: string
-  status: Status
-  priority: Priority
-  assignee: string
-  labels: string[]
-  comments: Comment[]
-  createdAt: Date
-  updatedAt: Date
-}
-
-const initialTickets: Ticket[] = [
-  {
-    id: "MONEY-001",
-    title: "Monitor CLANKER position",
-    description: "Track CLANKER token position on Base. Entry: ~$45. Current: down ~7%. HODL strategy.",
-    status: "in-progress",
-    priority: "high",
-    assignee: "Chiquitín",
-    labels: ["trading", "crypto", "base"],
-    comments: [
-      { id: "c1", author: "Chiquitín", content: "Position opened. Monitoring daily.", createdAt: new Date("2026-01-31") }
-    ],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-  {
-    id: "MONEY-002",
-    title: "Research new Base opportunities",
-    description: "Find alpha on Base chain. Look for undervalued tokens, new launches, and trading opportunities.",
-    status: "in-progress",
-    priority: "critical",
-    assignee: "Chiquitín",
-    labels: ["research", "alpha", "base"],
-    comments: [
-      { id: "c2", author: "Chiquitín", content: "Researching memecoins and DeFi opportunities on Base...", createdAt: new Date("2026-01-31") }
-    ],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-  {
-    id: "MONEY-003",
-    title: "Build trading automation",
-    description: "Create automated trading tools for faster execution. Integrate with DEX aggregators like Odos.",
-    status: "todo",
-    priority: "medium",
-    assignee: "Chiquitín",
-    labels: ["automation", "tools"],
-    comments: [],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-  {
-    id: "MONEY-004",
-    title: "Polymarket strategy",
-    description: "Research prediction market strategies. Find high-probability bets.",
-    status: "backlog",
-    priority: "medium",
-    assignee: "Chiquitín",
-    labels: ["polymarket", "research"],
-    comments: [],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-  {
-    id: "MONEY-005",
-    title: "Wallet setup complete",
-    description: "Base wallet configured: 0x6882143A95BB00D0bD67E2a6f4539bAeA4Aa52e8",
-    status: "done",
-    priority: "high",
-    assignee: "Chiquitín",
-    labels: ["setup", "wallet"],
-    comments: [
-      { id: "c3", author: "Chiquitín", content: "Wallet ready. Trading tools configured.", createdAt: new Date("2026-01-31") }
-    ],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-  {
-    id: "MONEY-006",
-    title: "Dashboard deployed",
-    description: "Autonomis Dashboard live at dashboard.autonomis.co",
-    status: "done",
-    priority: "medium",
-    assignee: "Chiquitín",
-    labels: ["infrastructure"],
-    comments: [
-      { id: "c4", author: "Chiquitín", content: "Next.js + Vercel. Clean and fast.", createdAt: new Date("2026-01-31") }
-    ],
-    createdAt: new Date("2026-01-31"),
-    updatedAt: new Date("2026-01-31"),
-  },
-]
 
 const statusColumns: { id: Status; title: string; color: string }[] = [
   { id: "backlog", title: "Backlog", color: "bg-slate-500" },
@@ -136,10 +35,64 @@ const priorityConfig: Record<Priority, { label: string; color: string }> = {
 }
 
 export default function TasksPage() {
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets)
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [ticketComments, setTicketComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState("")
   const [draggedTicket, setDraggedTicket] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showNewTicket, setShowNewTicket] = useState(false)
+  const [newTicket, setNewTicket] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as Priority,
+    assignee: "Bernardo",
+    labels: [] as string[],
+  })
+
+  // Fetch tickets and comments
+  useEffect(() => {
+    fetchData()
+    
+    // Subscribe to realtime changes
+    const ticketsChannel = supabase
+      .channel('tickets-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+        fetchData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(ticketsChannel)
+    }
+  }, [])
+
+  const fetchData = async () => {
+    const { data: ticketsData } = await supabase
+      .from('tickets')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    
+    const { data: commentsData } = await supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: true })
+    
+    if (ticketsData) setTickets(ticketsData)
+    if (commentsData) setComments(commentsData)
+    setLoading(false)
+  }
+
+  // Update ticket comments when selected ticket changes
+  useEffect(() => {
+    if (selectedTicket) {
+      setTicketComments(comments.filter(c => c.ticket_id === selectedTicket.id))
+    }
+  }, [selectedTicket, comments])
 
   const handleDragStart = (ticketId: string) => {
     setDraggedTicket(ticketId)
@@ -149,41 +102,94 @@ export default function TasksPage() {
     e.preventDefault()
   }
 
-  const handleDrop = (status: Status) => {
+  const handleDrop = async (status: Status) => {
     if (draggedTicket) {
+      await supabase
+        .from('tickets')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', draggedTicket)
+      
       setTickets(tickets.map(t => 
-        t.id === draggedTicket ? { ...t, status, updatedAt: new Date() } : t
+        t.id === draggedTicket ? { ...t, status } : t
       ))
       setDraggedTicket(null)
     }
   }
 
-  const changeStatus = (ticketId: string, newStatus: Status) => {
+  const changeStatus = async (ticketId: string, newStatus: Status) => {
+    await supabase
+      .from('tickets')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', ticketId)
+    
     setTickets(tickets.map(t => 
-      t.id === ticketId ? { ...t, status: newStatus, updatedAt: new Date() } : t
+      t.id === ticketId ? { ...t, status: newStatus } : t
     ))
     if (selectedTicket?.id === ticketId) {
       setSelectedTicket({ ...selectedTicket, status: newStatus })
     }
   }
 
-  const addComment = () => {
+  const addComment = async () => {
     if (selectedTicket && newComment.trim()) {
-      const comment: Comment = {
-        id: `c${Date.now()}`,
+      const comment = {
+        ticket_id: selectedTicket.id,
         author: "Bernardo",
         content: newComment,
-        createdAt: new Date(),
       }
-      const updatedTicket = {
-        ...selectedTicket,
-        comments: [...selectedTicket.comments, comment],
-        updatedAt: new Date(),
+      
+      const { data } = await supabase
+        .from('comments')
+        .insert([comment])
+        .select()
+      
+      if (data) {
+        setComments([...comments, data[0]])
+        setTicketComments([...ticketComments, data[0]])
       }
-      setTickets(tickets.map(t => t.id === selectedTicket.id ? updatedTicket : t))
-      setSelectedTicket(updatedTicket)
+      
       setNewComment("")
     }
+  }
+
+  const createTicket = async () => {
+    if (!newTicket.title.trim()) return
+    
+    const ticketId = `MONEY-${String(tickets.length + 1).padStart(3, '0')}`
+    
+    const { data } = await supabase
+      .from('tickets')
+      .insert([{
+        id: ticketId,
+        title: newTicket.title,
+        description: newTicket.description,
+        status: 'todo' as Status,
+        priority: newTicket.priority,
+        assignee: newTicket.assignee,
+        labels: newTicket.labels,
+      }])
+      .select()
+    
+    if (data) {
+      setTickets([data[0], ...tickets])
+    }
+    
+    setShowNewTicket(false)
+    setNewTicket({
+      title: "",
+      description: "",
+      priority: "medium",
+      assignee: "Bernardo",
+      labels: [],
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -202,7 +208,7 @@ export default function TasksPage() {
           <Button variant="outline" size="icon">
             <Filter className="h-4 w-4" />
           </Button>
-          <Button>
+          <Button onClick={() => setShowNewTicket(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Task
           </Button>
@@ -238,7 +244,6 @@ export default function TasksPage() {
             onDragOver={handleDragOver}
             onDrop={() => handleDrop(column.id)}
           >
-            {/* Column Header */}
             <div className="flex items-center gap-2 px-2">
               <div className={`h-2 w-2 rounded-full ${column.color}`} />
               <h3 className="font-semibold text-sm">{column.title}</h3>
@@ -247,7 +252,6 @@ export default function TasksPage() {
               </Badge>
             </div>
 
-            {/* Column Content */}
             <div className="space-y-2 min-h-[400px] rounded-lg bg-muted/30 p-2">
               {tickets
                 .filter(t => t.status === column.id)
@@ -268,7 +272,7 @@ export default function TasksPage() {
                       </div>
                       <p className="font-medium text-sm line-clamp-2">{ticket.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {ticket.labels.slice(0, 2).map((label) => (
+                        {ticket.labels?.slice(0, 2).map((label) => (
                           <Badge key={label} variant="outline" className="text-xs">
                             {label}
                           </Badge>
@@ -277,10 +281,10 @@ export default function TasksPage() {
                       <div className="flex items-center justify-between pt-2 border-t">
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MessageSquare className="h-3 w-3" />
-                          {ticket.comments.length}
+                          {comments.filter(c => c.ticket_id === ticket.id).length}
                         </div>
                         <div className="h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-[10px] text-white font-medium">
-                          🦀
+                          {ticket.assignee === "Chiquitín" ? "🦀" : ticket.assignee?.charAt(0) || "?"}
                         </div>
                       </div>
                     </CardContent>
@@ -290,6 +294,71 @@ export default function TasksPage() {
           </div>
         ))}
       </div>
+
+      {/* New Ticket Modal */}
+      <Dialog open={showNewTicket} onOpenChange={setShowNewTicket}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+            <DialogDescription>Add a new task to track</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Title</label>
+              <Input
+                value={newTicket.title}
+                onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })}
+                placeholder="Task title..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={newTicket.description}
+                onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                placeholder="Task description..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priority</label>
+              <div className="flex gap-2 mt-1">
+                {(["critical", "high", "medium", "low"] as Priority[]).map((p) => (
+                  <Button
+                    key={p}
+                    variant={newTicket.priority === p ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNewTicket({ ...newTicket, priority: p })}
+                  >
+                    {p}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Assignee</label>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  variant={newTicket.assignee === "Bernardo" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewTicket({ ...newTicket, assignee: "Bernardo" })}
+                >
+                  Bernardo
+                </Button>
+                <Button
+                  variant={newTicket.assignee === "Chiquitín" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewTicket({ ...newTicket, assignee: "Chiquitín" })}
+                >
+                  🦀 Chiquitín
+                </Button>
+              </div>
+            </div>
+            <Button onClick={createTicket} className="w-full">
+              Create Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Ticket Detail Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
@@ -308,7 +377,6 @@ export default function TasksPage() {
               </DialogHeader>
 
               <div className="space-y-6 mt-4">
-                {/* Status Selector */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
                   <div className="flex gap-2 flex-wrap">
@@ -326,7 +394,6 @@ export default function TasksPage() {
                   </div>
                 </div>
 
-                {/* Meta Info */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-sm text-muted-foreground flex items-center gap-2">
@@ -339,30 +406,29 @@ export default function TasksPage() {
                       <Tag className="h-4 w-4" /> Labels
                     </label>
                     <div className="flex gap-1 flex-wrap">
-                      {selectedTicket.labels.map((label) => (
+                      {selectedTicket.labels?.map((label) => (
                         <Badge key={label} variant="outline">{label}</Badge>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Comments */}
                 <div className="space-y-3">
                   <label className="text-sm font-medium flex items-center gap-2">
                     <MessageSquare className="h-4 w-4" />
-                    Comments ({selectedTicket.comments.length})
+                    Comments ({ticketComments.length})
                   </label>
                   <div className="space-y-3 max-h-48 overflow-y-auto">
-                    {selectedTicket.comments.map((comment) => (
+                    {ticketComments.map((comment) => (
                       <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
                         <div className="h-8 w-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
-                          {comment.author === "Chiquitín" ? "🦀" : comment.author.charAt(0)}
+                          {comment.author === "Chiquitín" ? "🦀" : comment.author?.charAt(0) || "?"}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm">{comment.author}</span>
                             <span className="text-xs text-muted-foreground">
-                              {comment.createdAt.toLocaleDateString()}
+                              {new Date(comment.created_at).toLocaleString()}
                             </span>
                           </div>
                           <p className="text-sm mt-1">{comment.content}</p>
