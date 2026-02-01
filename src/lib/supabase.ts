@@ -25,3 +25,12 @@ export interface Comment {
   content: string
   created_at: string
 }
+
+export interface Message {
+  id: string
+  sender: string
+  recipient: string // 'all' for broadcast, agent name for direct
+  content: string
+  message_type: 'chat' | 'broadcast' | 'system'
+  created_at: string
+}

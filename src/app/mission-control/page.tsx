@@ -34,7 +34,7 @@ import {
   FileText,
   Radio
 } from "lucide-react"
-import { supabase, type Ticket, type Comment } from "@/lib/supabase"
+import { supabase, type Ticket, type Comment, type Message } from "@/lib/supabase"
 
 // Types
 type Priority = "critical" | "high" | "medium" | "low"
@@ -150,6 +150,15 @@ export default function MissionControlPage() {
   })
   const [agentMessage, setAgentMessage] = useState("")
 
+  // New modal states
+  const [showChat, setShowChat] = useState(false)
+  const [showBroadcast, setShowBroadcast] = useState(false)
+  const [showDocs, setShowDocs] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [chatMessage, setChatMessage] = useState("")
+  const [broadcastMessage, setBroadcastMessage] = useState("")
+  const [chatRecipient, setChatRecipient] = useState("Chiquitín")
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -164,6 +173,7 @@ export default function MissionControlPage() {
       .channel('tickets-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchData())
       .subscribe()
 
     return () => { supabase.removeChannel(ticketsChannel) }
@@ -172,9 +182,38 @@ export default function MissionControlPage() {
   const fetchData = async () => {
     const { data: ticketsData } = await supabase.from('tickets').select('*').order('updated_at', { ascending: false })
     const { data: commentsData } = await supabase.from('comments').select('*').order('created_at', { ascending: true })
+    const { data: messagesData } = await supabase.from('messages').select('*').order('created_at', { ascending: true })
     if (ticketsData) setTickets(ticketsData)
     if (commentsData) setComments(commentsData)
+    if (messagesData) setMessages(messagesData)
     setLoading(false)
+  }
+
+  // Send chat message
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) return
+    const { data } = await supabase.from('messages').insert([{
+      sender: 'Bernardo',
+      recipient: chatRecipient,
+      content: chatMessage,
+      message_type: 'chat'
+    }]).select()
+    if (data) setMessages([...messages, data[0]])
+    setChatMessage("")
+  }
+
+  // Send broadcast
+  const sendBroadcast = async () => {
+    if (!broadcastMessage.trim()) return
+    const { data } = await supabase.from('messages').insert([{
+      sender: 'Bernardo',
+      recipient: 'all',
+      content: broadcastMessage,
+      message_type: 'broadcast'
+    }]).select()
+    if (data) setMessages([...messages, data[0]])
+    setBroadcastMessage("")
+    setShowBroadcast(false)
   }
 
   useEffect(() => {
@@ -289,15 +328,30 @@ export default function MissionControlPage() {
           {/* Right - Actions & Clock */}
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+              <Button 
+                onClick={() => setShowChat(true)}
+                variant="outline" 
+                size="sm" 
+                className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2"
+              >
                 <MessageCircle className="w-4 h-4" />
                 Chat
               </Button>
-              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+              <Button 
+                onClick={() => setShowBroadcast(true)}
+                variant="outline" 
+                size="sm" 
+                className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2"
+              >
                 <Radio className="w-4 h-4" />
                 Broadcast
               </Button>
-              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+              <Button 
+                onClick={() => setShowDocs(true)}
+                variant="outline" 
+                size="sm" 
+                className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2"
+              >
                 <FileText className="w-4 h-4" />
                 Docs
               </Button>
@@ -869,6 +923,245 @@ export default function MissionControlPage() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Chat Modal */}
+      <Dialog open={showChat} onOpenChange={setShowChat}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl h-[600px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-amber-500" />
+              Agent Chat
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500 text-sm">Send direct messages to your agents</DialogDescription>
+          </DialogHeader>
+          
+          {/* Agent Selector */}
+          <div className="flex gap-2 flex-wrap py-3 border-b border-zinc-800">
+            {agents.map((agent) => {
+              const Icon = agent.icon
+              return (
+                <Button
+                  key={agent.id}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setChatRecipient(agent.name)}
+                  className={`gap-2 ${chatRecipient === agent.name 
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                    : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                >
+                  <Icon className="w-3.5 h-3.5" /> {agent.name}
+                </Button>
+              )
+            })}
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-3 py-4">
+            {messages
+              .filter(m => m.recipient === chatRecipient || m.sender === chatRecipient || m.recipient === 'all')
+              .map((msg) => (
+                <div 
+                  key={msg.id} 
+                  className={`flex gap-3 ${msg.sender === 'Bernardo' ? 'flex-row-reverse' : ''}`}
+                >
+                  <div className={`max-w-[70%] p-3 rounded-xl ${
+                    msg.sender === 'Bernardo' 
+                      ? 'bg-amber-500/20 text-amber-100' 
+                      : msg.message_type === 'broadcast'
+                      ? 'bg-violet-500/20 text-violet-100'
+                      : 'bg-zinc-800 text-zinc-200'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium">{msg.sender}</span>
+                      {msg.message_type === 'broadcast' && (
+                        <Badge className="bg-violet-500/30 text-violet-300 text-[9px]">BROADCAST</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm">{msg.content}</p>
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      {new Date(msg.created_at).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            {messages.filter(m => m.recipient === chatRecipient || m.sender === chatRecipient || m.recipient === 'all').length === 0 && (
+              <div className="text-center py-12 text-zinc-600">
+                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No messages with {chatRecipient} yet</p>
+                <p className="text-xs mt-1">Start a conversation!</p>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2 pt-3 border-t border-zinc-800">
+            <Input
+              placeholder={`Message ${chatRecipient}...`}
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
+              className="bg-zinc-800/50 border-zinc-700/50 focus:border-amber-500/50"
+            />
+            <Button 
+              onClick={sendChatMessage}
+              className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Broadcast Modal */}
+      <Dialog open={showBroadcast} onOpenChange={setShowBroadcast}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <Radio className="w-5 h-5 text-violet-500" />
+              Broadcast Message
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500 text-sm">Send a message to ALL agents simultaneously</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
+              <span className="text-xs text-zinc-500 w-full mb-2">Recipients:</span>
+              {agents.map((agent) => {
+                const Icon = agent.icon
+                return (
+                  <Badge key={agent.id} className={`${agent.badgeColor} gap-1`}>
+                    <Icon className="w-3 h-3" /> {agent.name}
+                  </Badge>
+                )
+              })}
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Message</label>
+              <Textarea
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                placeholder="Type your broadcast message..."
+                className="mt-2 bg-zinc-800/50 border-zinc-700/50 focus:border-violet-500/50 min-h-[120px]"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowBroadcast(false)}
+                className="flex-1 border-zinc-700 text-zinc-400"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={sendBroadcast}
+                className="flex-1 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0"
+              >
+                <Radio className="w-4 h-4 mr-2" />
+                Send Broadcast
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Docs Modal */}
+      <Dialog open={showDocs} onOpenChange={setShowDocs}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-500" />
+              Documentation
+            </DialogTitle>
+            <DialogDescription className="text-zinc-500 text-sm">Agent squad reference & system docs</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 text-center">
+                <div className="text-2xl font-bold text-white">{agents.length}</div>
+                <div className="text-xs text-zinc-500">Total Agents</div>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 text-center">
+                <div className="text-2xl font-bold text-emerald-400">{agents.filter(a => a.status === 'working').length}</div>
+                <div className="text-xs text-zinc-500">Active Now</div>
+              </div>
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 text-center">
+                <div className="text-2xl font-bold text-amber-400">{tickets.length}</div>
+                <div className="text-xs text-zinc-500">Total Tasks</div>
+              </div>
+            </div>
+
+            {/* Agent Reference */}
+            <div>
+              <h3 className="text-sm font-medium text-zinc-300 mb-3 flex items-center gap-2">
+                <Bot className="w-4 h-4" /> Agent Reference
+              </h3>
+              <div className="space-y-2">
+                {agents.map((agent) => {
+                  const Icon = agent.icon
+                  return (
+                    <div key={agent.id} className="p-3 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${agent.color} flex items-center justify-center`}>
+                          <Icon className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-zinc-200">{agent.name}</span>
+                            <Badge className={agent.badgeColor}>{agent.badge}</Badge>
+                          </div>
+                          <p className="text-xs text-zinc-500">{agent.role}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-xs ${agent.status === 'working' ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                            {agent.status === 'working' ? '● Working' : '○ Idle'}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-2">{agent.about}</p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {agent.skills.map((skill) => (
+                          <span key={skill} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-700/50 text-zinc-400">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* System Info */}
+            <div>
+              <h3 className="text-sm font-medium text-zinc-300 mb-3 flex items-center gap-2">
+                <Cog className="w-4 h-4" /> System Info
+              </h3>
+              <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Platform</span>
+                  <span className="text-zinc-300">Autonomis v1.0</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Database</span>
+                  <span className="text-zinc-300">Supabase (Realtime)</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Owner</span>
+                  <span className="text-zinc-300">Bernardo Garza</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">Status</span>
+                  <span className="text-emerald-400">● Online</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
