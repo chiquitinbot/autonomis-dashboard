@@ -1,6 +1,33 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Mail, Calendar, CheckSquare, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { BitcoinTracker } from "@/components/widgets/bitcoin-tracker"
+import { FitnessTracker } from "@/components/widgets/fitness-tracker"
+import { ExpensesTracker } from "@/components/widgets/expenses-tracker"
+import { PartnershipPipeline } from "@/components/widgets/partnership-pipeline"
+
+// Mock data - replace with real data from Supabase
+const mockWorkouts = [
+  { date: '2026-02-01', type: null, distance_km: 0 },
+  { date: '2026-02-02', type: null, distance_km: 0 },
+  { date: '2026-02-03', type: null, distance_km: 0 },
+  { date: '2026-02-04', type: null, distance_km: 0 },
+  { date: '2026-02-05', type: null, distance_km: 0 },
+  { date: '2026-02-06', type: null, distance_km: 0 },
+  { date: '2026-02-07', type: null, distance_km: 0 },
+] as const
+
+const mockExpenseCategories = [
+  { name: 'Comida', amount: 1818, icon: '🍽️', color: 'purple' },
+  { name: 'Entretenimiento', amount: 650, icon: '🎉', color: 'pink' },
+]
+
+const mockPartners = [
+  { id: '1', name: 'HashiCorp', category: 'infrastructure', status: 'active' as const, priority: 'high' as const },
+  { id: '2', name: 'IBM', category: 'enterprise', status: 'active' as const, priority: 'high' as const, nextStep: 'Follow up with Jason Simons' },
+  { id: '3', name: 'Arize AI', category: 'observability', status: 'prospect' as const, priority: 'high' as const, nextStep: 'Find partnership contact on LinkedIn' },
+  { id: '4', name: 'Weights & Biases', category: 'mlops', status: 'prospect' as const, priority: 'high' as const, nextStep: 'Research partner program' },
+]
 
 export default function DashboardPage() {
   return (
@@ -11,7 +38,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Welcome back, Bernardo. Here&apos;s what&apos;s happening.</p>
       </div>
 
-      {/* Metrics Grid */}
+      {/* Quick Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Emails"
@@ -35,10 +62,36 @@ export default function DashboardPage() {
         />
         <MetricCard
           title="Portfolio"
-          value="$18.55"
-          description="Total value"
+          value="$19,500"
+          description="0.2 BTC value"
           icon={TrendingUp}
-          trend={{ value: 7.25, direction: "down", suffix: "%" }}
+          trend={{ value: 2.3, direction: "up", suffix: "%" }}
+        />
+      </div>
+
+      {/* Goals Widgets Row */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <BitcoinTracker 
+          currentHolding={0.2} 
+          targetAmount={1.0} 
+        />
+        <FitnessTracker 
+          weeklyGymTarget={4}
+          weeklyKmTarget={25}
+          workouts={mockWorkouts as any}
+          totalKmThisMonth={0}
+          halfMarathonDate="2026-12-31"
+        />
+        <ExpensesTracker
+          monthName="Febrero"
+          totalAmount={2468}
+          transactionCount={3}
+          categories={mockExpenseCategories}
+          budget={10000}
+        />
+        <PartnershipPipeline
+          partners={mockPartners}
+          nextResearchDate="Lun 3 Feb, 2PM"
         />
       </div>
 
@@ -63,14 +116,14 @@ export default function DashboardPage() {
                 due="Tomorrow"
               />
               <TaskItem
-                title="Update COE documentation"
-                priority="low"
+                title="Contact Arize AI partnerships"
+                priority="high"
                 due="This week"
               />
               <TaskItem
-                title="Polymarket strategy review"
-                priority="medium"
-                due="Friday"
+                title="Update COE documentation"
+                priority="low"
+                due="This week"
               />
             </div>
           </CardContent>
@@ -84,9 +137,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <ScheduleItem time="10:00" title="Standup Nexaminds" />
-              <ScheduleItem time="14:00" title="AI Strategy with Aurora" />
-              <ScheduleItem time="16:30" title="COE Progress Review" />
+              <ScheduleItem time="10:30" title="Nexaminds Weekly Sales" />
+              <ScheduleItem time="12:00" title="Leda : Bernardo sync" />
+              <ScheduleItem time="15:00" title="🏋️ Gym time!" highlight />
             </div>
           </CardContent>
         </Card>
@@ -192,12 +245,17 @@ function TaskItem({
   )
 }
 
-function ScheduleItem({ time, title }: { time: string; title: string }) {
+function ScheduleItem({ time, title, highlight }: { time: string; title: string; highlight?: boolean }) {
   return (
-    <div className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+    <div className={`flex items-center gap-4 p-3 rounded-lg border transition-colors
+      ${highlight 
+        ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20' 
+        : 'bg-card hover:bg-accent/50'
+      }`}
+    >
       <div className="text-sm font-mono text-muted-foreground w-14">{time}</div>
       <div className="h-full w-px bg-border" />
-      <span className="font-medium">{title}</span>
+      <span className={`font-medium ${highlight ? 'text-green-500' : ''}`}>{title}</span>
     </div>
   )
 }
