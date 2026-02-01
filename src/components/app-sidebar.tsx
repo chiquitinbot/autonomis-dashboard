@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, CheckSquare, Settings } from "lucide-react"
+import { Home, Zap, Settings } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -18,7 +18,7 @@ import {
 
 const items = [
   { title: "Overview", url: "/", icon: Home },
-  { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Mission Control", url: "/mission-control", icon: Zap },
 ]
 
 export function AppSidebar() {
