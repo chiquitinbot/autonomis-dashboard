@@ -197,8 +197,8 @@ export default function TasksPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">🎯 Mission: $1,000,000</h1>
-          <p className="text-muted-foreground">Tracking our path to making you a millionaire</p>
+          <h1 className="text-3xl font-bold tracking-tight">📋 Tasks</h1>
+          <p className="text-muted-foreground">Track and manage your work</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -214,26 +214,6 @@ export default function TasksPage() {
           </Button>
         </div>
       </div>
-
-      {/* Portfolio Summary */}
-      <Card className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-orange-500/20">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Current Portfolio</p>
-              <p className="text-2xl font-bold">$18.55</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Target</p>
-              <p className="text-2xl font-bold text-green-500">$1,000,000</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-muted-foreground">Progress</p>
-              <p className="text-lg font-mono">0.002%</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Kanban Board */}
       <div className="grid grid-cols-5 gap-4">
