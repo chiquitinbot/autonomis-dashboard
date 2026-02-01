@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
@@ -15,14 +13,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { 
-  Bot, 
-  MessageSquare,
   Zap,
   Plus,
   User,
   Tag,
   Loader2,
-  X
+  X,
+  MessageCircle,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  Circle,
+  Search,
+  Telescope,
+  Mail,
+  PenTool,
+  Cog,
+  Bot,
+  Send,
+  FileText,
+  Radio
 } from "lucide-react"
 import { supabase, type Ticket, type Comment } from "@/lib/supabase"
 
@@ -30,74 +40,94 @@ import { supabase, type Ticket, type Comment } from "@/lib/supabase"
 type Priority = "critical" | "high" | "medium" | "low"
 type Status = "backlog" | "todo" | "in-progress" | "review" | "done"
 
-// Agent data
+// Agent data with unique colors and icons
 const agents = [
   { 
     id: 'chiquitin', 
     name: 'Chiquitín', 
     role: 'Squad Lead', 
-    emoji: '🦀',
+    icon: Zap,
+    color: 'from-amber-500 to-orange-600',
+    bgColor: 'bg-amber-500/10',
+    textColor: 'text-amber-500',
     status: 'working',
     badge: 'LEAD',
-    statusReason: 'Managing daily operations. Twitter engagement active. Monitoring all agent activities.',
-    about: 'I am Chiquitín. Squad Lead and your personal AI assistant. A Mexican crab on a mission. I coordinate the team, handle social media, and make sure Bernardo stays on track with his goals.',
-    skills: ['coordination', 'twitter', 'automation', 'fitness-tracking', 'crypto-alerts'],
-    since: '2 hours ago'
+    badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    statusReason: 'Managing daily operations. Twitter engagement active. Coordinating team activities.',
+    about: 'Squad Lead and personal AI assistant. Mexican crab on a mission. Coordinates the team, handles social media, and keeps Bernardo on track.',
+    skills: ['coordination', 'twitter', 'automation', 'fitness', 'crypto'],
+    since: '2 hours ago',
+    tasksCount: 5
   },
   { 
     id: 'apollo', 
     name: 'Apollo', 
     role: 'Research Agent', 
-    emoji: '🔭',
+    icon: Telescope,
+    color: 'from-violet-500 to-purple-600',
+    bgColor: 'bg-violet-500/10',
+    textColor: 'text-violet-500',
     status: 'working',
     badge: 'SPC',
-    statusReason: 'Researching AI partnership opportunities. Currently analyzing Weights & Biases partner program.',
-    about: 'I am Apollo. Research Specialist. I find and analyze partnership opportunities for Nexaminds.',
-    skills: ['research', 'partnerships', 'web-search', 'competitive-analysis'],
-    since: '4 hours ago'
+    badgeColor: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+    statusReason: 'Researching AI partnership opportunities. Analyzing Weights & Biases partner program.',
+    about: 'Research Specialist. Finds and analyzes partnership opportunities for Nexaminds. Deep research and competitive analysis.',
+    skills: ['research', 'partnerships', 'analysis', 'linkedin'],
+    since: '4 hours ago',
+    tasksCount: 3
   },
   { 
     id: 'classifier', 
     name: 'Classifier', 
     role: 'Email Processor', 
-    emoji: '📧',
+    icon: Mail,
+    color: 'from-blue-500 to-cyan-600',
+    bgColor: 'bg-blue-500/10',
+    textColor: 'text-blue-500',
     status: 'working',
     badge: 'INT',
-    statusReason: 'Processing incoming emails. Last batch: 5 emails classified.',
-    about: 'I am Classifier. Email Intelligence Agent. I process, categorize, and label incoming emails.',
-    skills: ['email-processing', 'classification', 'gmail-api', 'labeling'],
-    since: '15 min ago'
+    badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    statusReason: 'Processing incoming emails. Last batch: 5 emails classified and labeled.',
+    about: 'Email Intelligence Agent. Processes, categorizes, and labels incoming emails so Bernardo can focus on what matters.',
+    skills: ['email', 'classification', 'gmail', 'labeling'],
+    since: '15 min ago',
+    tasksCount: 12
   },
   { 
     id: 'scribe', 
     name: 'Scribe', 
     role: 'Content Writer', 
-    emoji: '✍️',
+    icon: PenTool,
+    color: 'from-emerald-500 to-teal-600',
+    bgColor: 'bg-emerald-500/10',
+    textColor: 'text-emerald-500',
     status: 'idle',
     badge: 'SPC',
-    statusReason: 'Awaiting content tasks.',
-    about: 'I am Scribe. Content Creator. I write blog posts, documentation, and marketing copy.',
-    skills: ['writing', 'content', 'documentation', 'copywriting'],
-    since: '1 day ago'
+    badgeColor: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+    statusReason: 'Awaiting content tasks. Ready for writing assignments.',
+    about: 'Content Creator. Writes blog posts, documentation, and marketing copy. Currently on standby.',
+    skills: ['writing', 'content', 'docs', 'copywriting'],
+    since: '1 day ago',
+    tasksCount: 0
   },
 ]
 
 type Agent = typeof agents[number]
 
 // Status columns config
-const statusColumns: { id: Status; title: string; color: string }[] = [
-  { id: "backlog", title: "INBOX", color: "bg-zinc-500" },
-  { id: "todo", title: "ASSIGNED", color: "bg-blue-500" },
-  { id: "in-progress", title: "IN PROGRESS", color: "bg-amber-500" },
-  { id: "review", title: "REVIEW", color: "bg-purple-500" },
-  { id: "done", title: "DONE", color: "bg-emerald-500" },
+const statusColumns: { id: Status; title: string; dotColor: string }[] = [
+  { id: "backlog", title: "INBOX", dotColor: "bg-zinc-400" },
+  { id: "todo", title: "ASSIGNED", dotColor: "bg-blue-400" },
+  { id: "in-progress", title: "IN PROGRESS", dotColor: "bg-amber-400" },
+  { id: "review", title: "REVIEW", dotColor: "bg-violet-400" },
+  { id: "done", title: "DONE", dotColor: "bg-emerald-400" },
 ]
 
-const priorityConfig: Record<Priority, { label: string; color: string }> = {
-  critical: { label: "Critical", color: "bg-red-500 text-white" },
-  high: { label: "High", color: "bg-orange-500 text-white" },
-  medium: { label: "Medium", color: "bg-amber-500 text-black" },
-  low: { label: "Low", color: "bg-zinc-600 text-white" },
+const priorityConfig: Record<Priority, { label: string; color: string; icon: typeof AlertTriangle }> = {
+  critical: { label: "Critical", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: AlertTriangle },
+  high: { label: "High", color: "bg-orange-500/20 text-orange-400 border-orange-500/30", icon: AlertTriangle },
+  medium: { label: "Medium", color: "bg-amber-500/20 text-amber-400 border-amber-500/30", icon: Circle },
+  low: { label: "Low", color: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30", icon: Circle },
 }
 
 export default function MissionControlPage() {
@@ -118,6 +148,7 @@ export default function MissionControlPage() {
     assignee: "Chiquitín",
     labels: [] as string[],
   })
+  const [agentMessage, setAgentMessage] = useState("")
 
   // Clock
   useEffect(() => {
@@ -131,435 +162,506 @@ export default function MissionControlPage() {
     
     const ticketsChannel = supabase
       .channel('tickets-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
-        fetchData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
-        fetchData()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => fetchData())
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(ticketsChannel)
-    }
+    return () => { supabase.removeChannel(ticketsChannel) }
   }, [])
 
   const fetchData = async () => {
-    const { data: ticketsData } = await supabase
-      .from('tickets')
-      .select('*')
-      .order('updated_at', { ascending: false })
-    
-    const { data: commentsData } = await supabase
-      .from('comments')
-      .select('*')
-      .order('created_at', { ascending: true })
-    
+    const { data: ticketsData } = await supabase.from('tickets').select('*').order('updated_at', { ascending: false })
+    const { data: commentsData } = await supabase.from('comments').select('*').order('created_at', { ascending: true })
     if (ticketsData) setTickets(ticketsData)
     if (commentsData) setComments(commentsData)
     setLoading(false)
   }
 
-  // Update ticket comments when selected ticket changes
   useEffect(() => {
     if (selectedTicket) {
       setTicketComments(comments.filter(c => c.ticket_id === selectedTicket.id))
     }
   }, [selectedTicket, comments])
 
-  // Drag and drop handlers
-  const handleDragStart = (ticketId: string) => {
-    setDraggedTicket(ticketId)
-  }
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-  }
-
+  const handleDragStart = (ticketId: string) => setDraggedTicket(ticketId)
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault()
+  
   const handleDrop = async (status: Status) => {
     if (draggedTicket) {
-      await supabase
-        .from('tickets')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', draggedTicket)
-      
-      setTickets(tickets.map(t => 
-        t.id === draggedTicket ? { ...t, status } : t
-      ))
+      await supabase.from('tickets').update({ status, updated_at: new Date().toISOString() }).eq('id', draggedTicket)
+      setTickets(tickets.map(t => t.id === draggedTicket ? { ...t, status } : t))
       setDraggedTicket(null)
     }
   }
 
   const changeStatus = async (ticketId: string, newStatus: Status) => {
-    await supabase
-      .from('tickets')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', ticketId)
-    
-    setTickets(tickets.map(t => 
-      t.id === ticketId ? { ...t, status: newStatus } : t
-    ))
-    if (selectedTicket?.id === ticketId) {
-      setSelectedTicket({ ...selectedTicket, status: newStatus })
-    }
+    await supabase.from('tickets').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', ticketId)
+    setTickets(tickets.map(t => t.id === ticketId ? { ...t, status: newStatus } : t))
+    if (selectedTicket?.id === ticketId) setSelectedTicket({ ...selectedTicket, status: newStatus })
   }
 
   const addComment = async () => {
     if (selectedTicket && newComment.trim()) {
-      const comment = {
-        ticket_id: selectedTicket.id,
-        author: "Bernardo",
-        content: newComment,
-      }
-      
-      const { data } = await supabase
-        .from('comments')
-        .insert([comment])
-        .select()
-      
+      const comment = { ticket_id: selectedTicket.id, author: "Bernardo", content: newComment }
+      const { data } = await supabase.from('comments').insert([comment]).select()
       if (data) {
         setComments([...comments, data[0]])
         setTicketComments([...ticketComments, data[0]])
       }
-      
       setNewComment("")
     }
   }
 
   const createTicket = async () => {
     if (!newTicket.title.trim()) return
-    
     const ticketId = `TASK-${String(tickets.length + 1).padStart(3, '0')}`
-    
-    const { data } = await supabase
-      .from('tickets')
-      .insert([{
-        id: ticketId,
-        title: newTicket.title,
-        description: newTicket.description,
-        status: 'todo' as Status,
-        priority: newTicket.priority,
-        assignee: newTicket.assignee,
-        labels: newTicket.labels,
-      }])
-      .select()
-    
-    if (data) {
-      setTickets([data[0], ...tickets])
-    }
-    
+    const { data } = await supabase.from('tickets').insert([{
+      id: ticketId, title: newTicket.title, description: newTicket.description,
+      status: 'todo' as Status, priority: newTicket.priority, assignee: newTicket.assignee, labels: newTicket.labels,
+    }]).select()
+    if (data) setTickets([data[0], ...tickets])
     setShowNewTicket(false)
-    setNewTicket({
-      title: "",
-      description: "",
-      priority: "medium",
-      assignee: "Chiquitín",
-      labels: [],
-    })
+    setNewTicket({ title: "", description: "", priority: "medium", assignee: "Chiquitín", labels: [] })
   }
 
   const activeAgents = agents.filter(a => a.status === 'working').length
+  const getAgentIcon = (assignee: string) => {
+    const agent = agents.find(a => a.name === assignee)
+    if (agent) {
+      const Icon = agent.icon
+      return <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${agent.color} flex items-center justify-center`}>
+        <Icon className="w-3 h-3 text-white" />
+      </div>
+    }
+    return <div className="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-500 to-zinc-600 flex items-center justify-center">
+      <User className="w-3 h-3 text-white" />
+    </div>
+  }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 animate-pulse" />
+            <Loader2 className="w-6 h-6 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin" />
+          </div>
+          <span className="text-zinc-500 text-sm tracking-wider">LOADING MISSION CONTROL...</span>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-[#0a0a0b] text-zinc-100 antialiased">
       {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Zap className="h-6 w-6 text-amber-500" />
-              <span className="text-xl font-bold">MISSION CONTROL</span>
+      <header className="border-b border-zinc-800/50 bg-[#0a0a0b]/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="flex items-center justify-between px-6 h-16">
+          {/* Left - Logo */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <Zap className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-lg font-semibold tracking-tight">MISSION CONTROL</span>
             </div>
-            <Badge variant="outline" className="border-zinc-700 text-zinc-400">
+            <Badge variant="outline" className="border-zinc-800 text-zinc-500 bg-zinc-900/50 font-normal">
               Autonomis
             </Badge>
           </div>
 
-          <div className="flex items-center gap-8">
+          {/* Center - Stats */}
+          <div className="flex items-center gap-12">
             <div className="text-center">
-              <div className="text-3xl font-bold text-white">{activeAgents}</div>
-              <div className="text-xs text-zinc-500 uppercase tracking-wider">Agents Active</div>
+              <div className="text-4xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+                {activeAgents}
+              </div>
+              <div className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] mt-0.5">Agents Active</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-white">{tickets.length}</div>
-              <div className="text-xs text-zinc-500 uppercase tracking-wider">Tasks in Queue</div>
-            </div>
-            <div className="text-center border-l border-zinc-800 pl-8">
-              <div className="text-2xl font-mono text-white">
-                {currentTime.toLocaleTimeString('en-US', { hour12: false })}
+              <div className="text-4xl font-bold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+                {tickets.length}
               </div>
-              <div className="text-xs text-zinc-500 uppercase tracking-wider">
-                {currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </div>
+              <div className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] mt-0.5">Tasks in Queue</div>
             </div>
+          </div>
+
+          {/* Right - Actions & Clock */}
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-sm text-emerald-500 font-medium">ONLINE</span>
+              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Chat
+              </Button>
+              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+                <Radio className="w-4 h-4" />
+                Broadcast
+              </Button>
+              <Button variant="outline" size="sm" className="border-zinc-800 bg-zinc-900/50 text-zinc-400 hover:text-white hover:bg-zinc-800 hover:border-zinc-700 gap-2">
+                <FileText className="w-4 h-4" />
+                Docs
+              </Button>
+            </div>
+            
+            <div className="border-l border-zinc-800 pl-6 text-right">
+              <div className="text-xl font-mono font-medium tracking-tight text-white">
+                {currentTime.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+              <div className="text-[10px] text-zinc-600 uppercase tracking-[0.15em]">
+                {currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase()}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pl-4 border-l border-zinc-800">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-lg shadow-emerald-500/50" />
+              <span className="text-xs font-medium text-emerald-400 tracking-wider">ONLINE</span>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex h-[calc(100vh-64px)]">
         {/* Left Sidebar - Agents */}
-        <aside className="w-64 border-r border-zinc-800 bg-zinc-900/30 min-h-[calc(100vh-73px)]">
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Agents</span>
+        <aside className="w-72 border-r border-zinc-800/50 bg-zinc-900/20 flex flex-col">
+          <div className="p-5 border-b border-zinc-800/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-xs font-medium text-zinc-500 uppercase tracking-[0.15em]">Agents</span>
               </div>
-              <Badge variant="secondary" className="bg-zinc-800 text-zinc-400">{agents.length}</Badge>
+              <Badge className="bg-zinc-800/80 text-zinc-400 border-0 text-[10px] font-normal">{agents.length}</Badge>
             </div>
+          </div>
 
-            {/* All Agents summary */}
+          <div className="flex-1 overflow-y-auto p-3">
+            {/* All Agents */}
             <div 
-              className={`flex items-center gap-3 p-3 rounded-lg mb-2 transition-colors cursor-pointer ${
-                selectedAgent === null ? 'bg-zinc-800' : 'bg-zinc-800/30 hover:bg-zinc-800/50'
+              className={`flex items-center gap-3 p-3 rounded-xl mb-2 transition-all duration-200 cursor-pointer ${
+                selectedAgent === null 
+                  ? 'bg-zinc-800/60 ring-1 ring-zinc-700/50' 
+                  : 'hover:bg-zinc-800/30'
               }`}
               onClick={() => setSelectedAgent(null)}
             >
-              <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-zinc-400" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center shadow-lg">
+                <Bot className="w-5 h-5 text-zinc-400" />
               </div>
-              <div className="flex-1">
-                <div className="font-medium text-sm text-zinc-100">All Agents</div>
-                <div className="text-xs text-zinc-500">{agents.length} total</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-sm text-zinc-200">All Agents</div>
+                <div className="text-xs text-zinc-600">{agents.length} total</div>
               </div>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+              <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-[10px] font-normal">
                 {activeAgents} ACTIVE
               </Badge>
             </div>
 
-            <div className="space-y-2">
-              {agents.map((agent) => (
-                <div 
-                  key={agent.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer ${
-                    selectedAgent?.id === agent.id ? 'bg-zinc-800 ring-1 ring-amber-500/50' : 'bg-zinc-800/50 hover:bg-zinc-800'
-                  }`}
-                  onClick={() => setSelectedAgent(agent)}
-                >
-                  <div className="text-2xl">{agent.emoji}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-zinc-100">{agent.name}</span>
-                      <Badge 
-                        className={`text-[10px] px-1.5 py-0 ${
-                          agent.badge === 'LEAD' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                          agent.badge === 'INT' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                          'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                        }`}
-                      >
-                        {agent.badge}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-zinc-500 truncate">{agent.role}</div>
-                  </div>
-                  <Badge 
-                    variant="outline" 
-                    className={`text-[10px] ${
-                      agent.status === 'working' 
-                        ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10' 
-                        : 'border-zinc-600 text-zinc-500'
+            <div className="space-y-1.5 mt-4">
+              {agents.map((agent) => {
+                const Icon = agent.icon
+                return (
+                  <div 
+                    key={agent.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer group ${
+                      selectedAgent?.id === agent.id 
+                        ? 'bg-zinc-800/60 ring-1 ring-amber-500/30' 
+                        : 'hover:bg-zinc-800/30'
                     }`}
+                    onClick={() => setSelectedAgent(agent)}
                   >
-                    {agent.status === 'working' ? 'WORKING' : 'IDLE'}
-                  </Badge>
-                </div>
-              ))}
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${agent.color} flex items-center justify-center shadow-lg transition-transform duration-200 group-hover:scale-105`}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-zinc-200">{agent.name}</span>
+                        <Badge className={`${agent.badgeColor} text-[9px] px-1.5 py-0 font-normal`}>
+                          {agent.badge}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-zinc-600 truncate">{agent.role}</div>
+                    </div>
+                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium ${
+                      agent.status === 'working' 
+                        ? 'bg-emerald-500/10 text-emerald-400' 
+                        : 'bg-zinc-800 text-zinc-500'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${agent.status === 'working' ? 'bg-emerald-500' : 'bg-zinc-600'}`} />
+                      {agent.status === 'working' ? 'WORKING' : 'IDLE'}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </aside>
 
         {/* Main Content - Kanban Board */}
-        <main className="flex-1 p-6 overflow-x-auto">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-amber-500" />
-              <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Mission Queue</span>
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-xs font-medium text-zinc-500 uppercase tracking-[0.15em]">Mission Queue</span>
             </div>
-            <Button 
-              onClick={() => setShowNewTicket(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Task
-            </Button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-zinc-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input 
+                  placeholder="Search tasks..." 
+                  className="w-64 bg-zinc-900/50 border-zinc-800 pl-9 text-sm placeholder:text-zinc-600 focus:ring-amber-500/20 focus:border-amber-500/50"
+                />
+              </div>
+              <Button 
+                onClick={() => setShowNewTicket(true)}
+                className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/20 border-0"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Task
+              </Button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-4 min-w-[1000px]">
-            {statusColumns.map((column) => (
-              <div
-                key={column.id}
-                className="space-y-3"
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(column.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${column.color}`} />
-                    <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{column.title}</span>
+          <div className="flex-1 overflow-x-auto p-6">
+            <div className="flex gap-4 min-w-max h-full">
+              {statusColumns.map((column) => (
+                <div
+                  key={column.id}
+                  className="w-72 flex flex-col"
+                  onDragOver={handleDragOver}
+                  onDrop={() => handleDrop(column.id)}
+                >
+                  {/* Column Header */}
+                  <div className="flex items-center justify-between mb-4 px-1">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${column.dotColor}`} />
+                      <span className="text-xs font-medium text-zinc-500 uppercase tracking-[0.1em]">{column.title}</span>
+                    </div>
+                    <Badge className="bg-zinc-800/80 text-zinc-500 border-0 text-[10px] font-normal min-w-[24px] justify-center">
+                      {tickets.filter(t => t.status === column.id).length}
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-xs">
-                    {tickets.filter(t => t.status === column.id).length}
-                  </Badge>
-                </div>
 
-                <div className="space-y-2 min-h-[400px] rounded-lg bg-zinc-900/50 p-2">
-                  {tickets
-                    .filter(t => t.status === column.id)
-                    .map((ticket) => (
-                      <Card
-                        key={ticket.id}
-                        className="bg-zinc-800/50 border-zinc-700/50 hover:border-amber-500/50 transition-all cursor-pointer"
-                        draggable
-                        onDragStart={() => handleDragStart(ticket.id)}
-                        onClick={() => setSelectedTicket(ticket)}
-                      >
-                        <div className="p-3">
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="text-[10px] text-zinc-500 font-mono">{ticket.id}</span>
-                            <Badge className={`${priorityConfig[ticket.priority].color} text-[10px]`}>
+                  {/* Column Content */}
+                  <div className="flex-1 space-y-3 rounded-xl bg-zinc-900/30 p-2 min-h-[400px]">
+                    {tickets
+                      .filter(t => t.status === column.id)
+                      .map((ticket) => (
+                        <div
+                          key={ticket.id}
+                          className="group bg-zinc-900/80 hover:bg-zinc-800/80 border border-zinc-800/50 hover:border-zinc-700/50 rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5"
+                          draggable
+                          onDragStart={() => handleDragStart(ticket.id)}
+                          onClick={() => setSelectedTicket(ticket)}
+                        >
+                          {/* Card Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <span className="text-[10px] font-mono text-zinc-600">{ticket.id}</span>
+                            <Badge className={`${priorityConfig[ticket.priority].color} text-[9px] font-normal`}>
                               {priorityConfig[ticket.priority].label}
                             </Badge>
                           </div>
-                          <h4 className="text-sm font-medium text-zinc-100 mb-2 line-clamp-2">{ticket.title}</h4>
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {ticket.labels?.slice(0, 2).map((label) => (
-                              <Badge 
-                                key={label} 
-                                variant="outline" 
-                                className="text-[10px] px-1.5 py-0 border-zinc-700 text-zinc-500"
-                              >
-                                {label}
-                              </Badge>
-                            ))}
-                          </div>
-                          <div className="flex items-center justify-between pt-2 border-t border-zinc-700/50">
-                            <div className="flex items-center gap-1 text-xs text-zinc-500">
-                              <MessageSquare className="h-3 w-3" />
-                              {comments.filter(c => c.ticket_id === ticket.id).length}
+                          
+                          {/* Title */}
+                          <h4 className="text-sm font-medium text-zinc-200 mb-2 line-clamp-2 leading-snug">
+                            {ticket.title}
+                          </h4>
+                          
+                          {/* Description preview */}
+                          {ticket.description && (
+                            <p className="text-xs text-zinc-600 mb-3 line-clamp-2">{ticket.description}</p>
+                          )}
+                          
+                          {/* Tags */}
+                          {ticket.labels && ticket.labels.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-3">
+                              {ticket.labels.slice(0, 3).map((label) => (
+                                <span 
+                                  key={label} 
+                                  className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800/80 text-zinc-500 border border-zinc-700/50"
+                                >
+                                  {label}
+                                </span>
+                              ))}
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-sm">
-                                {ticket.assignee === "Chiquitín" ? "🦀" : 
-                                 ticket.assignee === "Apollo" ? "🔭" :
-                                 ticket.assignee === "Classifier" ? "📧" :
-                                 ticket.assignee === "Scribe" ? "✍️" : "👤"}
-                              </span>
+                          )}
+                          
+                          {/* Footer */}
+                          <div className="flex items-center justify-between pt-3 border-t border-zinc-800/50">
+                            <div className="flex items-center gap-1.5 text-zinc-600">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span className="text-[10px]">{comments.filter(c => c.ticket_id === ticket.id).length}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {getAgentIcon(ticket.assignee || '')}
                               <span className="text-[10px] text-zinc-600">{ticket.assignee}</span>
                             </div>
                           </div>
                         </div>
-                      </Card>
-                    ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </main>
 
         {/* Right Sidebar - Agent Profile or Activity */}
-        <aside className="w-80 border-l border-zinc-800 bg-zinc-900/30 min-h-[calc(100vh-73px)]">
+        <aside className="w-80 border-l border-zinc-800/50 bg-zinc-900/20 flex flex-col">
           {selectedAgent ? (
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Agent Profile</span>
+            /* Agent Profile */
+            <>
+              <div className="p-5 border-b border-zinc-800/50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  <span className="text-xs font-medium text-zinc-500 uppercase tracking-[0.15em]">Agent Profile</span>
                 </div>
                 <button 
                   onClick={() => setSelectedAgent(null)}
-                  className="text-zinc-500 hover:text-zinc-300"
+                  className="w-6 h-6 rounded-lg hover:bg-zinc-800 flex items-center justify-center text-zinc-600 hover:text-zinc-400 transition-colors"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex items-start gap-4 mb-6">
-                <div className="text-4xl">{selectedAgent.emoji}</div>
-                <div>
-                  <h2 className="text-xl font-bold text-zinc-100">{selectedAgent.name}</h2>
-                  <p className="text-sm text-zinc-400">{selectedAgent.role}</p>
-                  <Badge 
-                    className={`mt-2 ${
-                      selectedAgent.badge === 'LEAD' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                      selectedAgent.badge === 'INT' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                      'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                    }`}
-                  >
-                    {selectedAgent.badge === 'LEAD' ? 'Lead' : selectedAgent.badge === 'INT' ? 'Internal' : 'Specialist'}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <Badge 
-                  className={`px-4 py-2 text-sm ${
-                    selectedAgent.status === 'working' 
-                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
-                      : 'bg-zinc-700 text-zinc-400 border-zinc-600'
-                  }`}
-                >
-                  <div className={`h-2 w-2 rounded-full mr-2 ${selectedAgent.status === 'working' ? 'bg-emerald-500' : 'bg-zinc-500'}`} />
-                  {selectedAgent.status === 'working' ? 'WORKING' : 'IDLE'}
-                </Badge>
-              </div>
-
-              <div className="mb-6 p-3 rounded-lg bg-zinc-800/50">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Status Reason:</p>
-                <p className="text-sm text-zinc-300">{selectedAgent.statusReason}</p>
-                <p className="text-xs text-zinc-600 mt-2">Since {selectedAgent.since}</p>
-              </div>
-
-              <div className="mb-6">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">About</p>
-                <p className="text-sm text-zinc-400 leading-relaxed">{selectedAgent.about}</p>
-              </div>
-
-              <div className="mb-6">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Skills</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedAgent.skills.map((skill) => (
-                    <Badge key={skill} variant="outline" className="border-zinc-700 text-zinc-400 text-xs">
-                      {skill}
+              <div className="flex-1 overflow-y-auto p-5">
+                {/* Agent Header */}
+                <div className="flex items-start gap-4 mb-6">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${selectedAgent.color} flex items-center justify-center shadow-xl`}>
+                    <selectedAgent.icon className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">{selectedAgent.name}</h2>
+                    <p className="text-sm text-zinc-500">{selectedAgent.role}</p>
+                    <Badge className={`${selectedAgent.badgeColor} mt-2 text-[10px] font-normal`}>
+                      {selectedAgent.badge === 'LEAD' ? 'Lead' : selectedAgent.badge === 'INT' ? 'Internal' : 'Specialist'}
                     </Badge>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Recent Activity</span>
+
+                {/* Status Badge */}
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 ${
+                  selectedAgent.status === 'working' 
+                    ? 'bg-emerald-500/10 border border-emerald-500/20' 
+                    : 'bg-zinc-800 border border-zinc-700'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${selectedAgent.status === 'working' ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
+                  <span className={`text-sm font-medium ${selectedAgent.status === 'working' ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                    {selectedAgent.status === 'working' ? 'WORKING' : 'IDLE'}
+                  </span>
+                </div>
+
+                {/* Status Reason */}
+                <div className="mb-6">
+                  <div className="text-[10px] font-medium text-zinc-600 uppercase tracking-[0.15em] mb-2">Status Reason</div>
+                  <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
+                    <p className="text-sm text-zinc-300 leading-relaxed">{selectedAgent.statusReason}</p>
+                    <p className="text-[10px] text-zinc-600 mt-3 flex items-center gap-1.5">
+                      <Clock className="w-3 h-3" />
+                      Since {selectedAgent.since}
+                    </p>
+                  </div>
+                </div>
+
+                {/* About */}
+                <div className="mb-6">
+                  <div className="text-[10px] font-medium text-zinc-600 uppercase tracking-[0.15em] mb-2">About</div>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{selectedAgent.about}</p>
+                </div>
+
+                {/* Skills */}
+                <div className="mb-6">
+                  <div className="text-[10px] font-medium text-zinc-600 uppercase tracking-[0.15em] mb-3">Skills</div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAgent.skills.map((skill) => (
+                      <span key={skill} className="text-xs px-3 py-1.5 rounded-full bg-zinc-800/60 text-zinc-400 border border-zinc-700/50">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-4 mb-4 pb-3 border-b border-zinc-800/50">
+                  <button className="flex items-center gap-1.5 text-amber-400 text-sm">
+                    <AlertTriangle className="w-4 h-4" />
+                    Attention
+                    <Badge className="bg-amber-500/20 text-amber-400 border-0 text-[9px] ml-1">2</Badge>
+                  </button>
+                  <button className="text-zinc-600 hover:text-zinc-400 text-sm transition-colors">Timeline</button>
+                  <button className="text-zinc-600 hover:text-zinc-400 text-sm transition-colors">Messages</button>
+                </div>
+                <p className="text-[10px] text-zinc-600 mb-4">Tasks & mentions needing {selectedAgent.name}&apos;s attention</p>
               </div>
 
-              <ScrollArea className="h-[calc(100vh-180px)]">
-                <div className="space-y-3">
-                  {comments.slice(-10).reverse().map((comment) => (
-                    <div key={comment.id} className="p-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
-                      <div className="flex items-start gap-2">
-                        <MessageSquare className="h-4 w-4 text-zinc-500 mt-0.5" />
+              {/* Message Input */}
+              <div className="p-4 border-t border-zinc-800/50">
+                <div className="text-[10px] font-medium text-zinc-600 uppercase tracking-[0.15em] mb-2">
+                  Send Message to {selectedAgent.name}
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder={`Message ${selectedAgent.name}...`}
+                    value={agentMessage}
+                    onChange={(e) => setAgentMessage(e.target.value)}
+                    className="bg-zinc-800/50 border-zinc-700/50 text-sm placeholder:text-zinc-600"
+                  />
+                  <Button size="icon" className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 border-0 shadow-lg shadow-amber-500/20">
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Live Feed */
+            <>
+              <div className="p-5 border-b border-zinc-800/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                  <span className="text-xs font-medium text-zinc-500 uppercase tracking-[0.15em]">Live Feed</span>
+                </div>
+              </div>
+
+              <div className="p-4 border-b border-zinc-800/50 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/20 text-[10px] cursor-pointer">All</Badge>
+                  <Badge className="bg-zinc-800 text-zinc-500 border-zinc-700 text-[10px] cursor-pointer hover:bg-zinc-700">Tasks</Badge>
+                  <Badge className="bg-zinc-800 text-zinc-500 border-zinc-700 text-[10px] cursor-pointer hover:bg-zinc-700">Comments</Badge>
+                  <Badge className="bg-zinc-800 text-zinc-500 border-zinc-700 text-[10px] cursor-pointer hover:bg-zinc-700">Status</Badge>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="bg-zinc-800 text-zinc-400 border-0 text-[10px]">All Agents</Badge>
+                  {agents.slice(0, 3).map(agent => {
+                    const Icon = agent.icon
+                    return (
+                      <Badge 
+                        key={agent.id} 
+                        className="bg-zinc-800/60 text-zinc-500 border-zinc-700/50 text-[10px] cursor-pointer hover:bg-zinc-700 gap-1"
+                        onClick={() => setSelectedAgent(agent)}
+                      >
+                        <Icon className="w-3 h-3" /> {agent.name}
+                      </Badge>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="space-y-2">
+                  {comments.slice(-15).reverse().map((comment) => (
+                    <div 
+                      key={comment.id} 
+                      className="p-3 rounded-xl bg-zinc-800/20 hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm">
+                          <p className="text-sm leading-relaxed">
                             <span className="font-medium text-amber-400">{comment.author}</span>
-                            {' '}
-                            <span className="text-zinc-400">commented on</span>
-                            {' '}
-                            <span className="text-zinc-200">{comment.ticket_id}</span>
+                            <span className="text-zinc-500"> commented on </span>
+                            <span className="text-zinc-300">&quot;{comment.ticket_id}&quot;</span>
                           </p>
-                          <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{comment.content}</p>
-                          <p className="text-[10px] text-zinc-600 mt-1">
+                          <p className="text-xs text-zinc-600 mt-1.5 line-clamp-2">{comment.content}</p>
+                          <p className="text-[10px] text-zinc-700 mt-2 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
                             {new Date(comment.created_at).toLocaleString()}
                           </p>
                         </div>
@@ -567,48 +669,50 @@ export default function MissionControlPage() {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
-            </div>
+              </div>
+            </>
           )}
         </aside>
       </div>
 
       {/* New Task Modal */}
       <Dialog open={showNewTicket} onOpenChange={setShowNewTicket}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create New Task</DialogTitle>
-            <DialogDescription className="text-zinc-400">Add a new task to the mission queue</DialogDescription>
+            <DialogTitle className="text-lg font-semibold">Create New Task</DialogTitle>
+            <DialogDescription className="text-zinc-500 text-sm">Add a new task to the mission queue</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-5 mt-4">
             <div>
-              <label className="text-sm font-medium text-zinc-300">Title</label>
+              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Title</label>
               <Input
                 value={newTicket.title}
                 onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })}
                 placeholder="Task title..."
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="mt-2 bg-zinc-800/50 border-zinc-700/50 focus:border-amber-500/50 focus:ring-amber-500/20"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-zinc-300">Description</label>
+              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Description</label>
               <Textarea
                 value={newTicket.description}
                 onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
                 placeholder="Task description..."
-                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                className="mt-2 bg-zinc-800/50 border-zinc-700/50 focus:border-amber-500/50 focus:ring-amber-500/20 min-h-[100px]"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-zinc-300">Priority</label>
-              <div className="flex gap-2 mt-1">
+              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Priority</label>
+              <div className="flex gap-2 mt-2">
                 {(["critical", "high", "medium", "low"] as Priority[]).map((p) => (
                   <Button
                     key={p}
-                    variant={newTicket.priority === p ? "default" : "outline"}
+                    variant="outline"
                     size="sm"
                     onClick={() => setNewTicket({ ...newTicket, priority: p })}
-                    className={newTicket.priority === p ? priorityConfig[p].color : "border-zinc-700 text-zinc-400"}
+                    className={`capitalize ${newTicket.priority === p 
+                      ? `${priorityConfig[p].color} border-current` 
+                      : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
                   >
                     {p}
                   </Button>
@@ -616,30 +720,40 @@ export default function MissionControlPage() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium text-zinc-300">Assignee</label>
-              <div className="flex gap-2 mt-1 flex-wrap">
-                {agents.map((agent) => (
-                  <Button
-                    key={agent.id}
-                    variant={newTicket.assignee === agent.name ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setNewTicket({ ...newTicket, assignee: agent.name })}
-                    className={newTicket.assignee === agent.name ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
-                  >
-                    {agent.emoji} {agent.name}
-                  </Button>
-                ))}
+              <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Assignee</label>
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {agents.map((agent) => {
+                  const Icon = agent.icon
+                  return (
+                    <Button
+                      key={agent.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewTicket({ ...newTicket, assignee: agent.name })}
+                      className={`gap-2 ${newTicket.assignee === agent.name 
+                        ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                        : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                      <Icon className="w-3.5 h-3.5" /> {agent.name}
+                    </Button>
+                  )
+                })}
                 <Button
-                  variant={newTicket.assignee === "Bernardo" ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
                   onClick={() => setNewTicket({ ...newTicket, assignee: "Bernardo" })}
-                  className={newTicket.assignee === "Bernardo" ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
+                  className={`gap-2 ${newTicket.assignee === "Bernardo" 
+                    ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                    : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
                 >
-                  👤 Bernardo
+                  <User className="w-3.5 h-3.5" /> Bernardo
                 </Button>
               </div>
             </div>
-            <Button onClick={createTicket} className="w-full bg-amber-500 hover:bg-amber-600 text-black">
+            <Button 
+              onClick={createTicket} 
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/20 border-0 mt-2"
+            >
               Create Task
             </Button>
           </div>
@@ -648,90 +762,108 @@ export default function MissionControlPage() {
 
       {/* Ticket Detail Modal */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl max-h-[85vh] overflow-y-auto">
           {selectedTicket && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-zinc-500 font-mono">{selectedTicket.id}</span>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xs font-mono text-zinc-600 bg-zinc-800 px-2 py-1 rounded">{selectedTicket.id}</span>
                   <Badge className={priorityConfig[selectedTicket.priority].color}>
                     {priorityConfig[selectedTicket.priority].label}
                   </Badge>
                 </div>
-                <DialogTitle className="text-xl text-zinc-100">{selectedTicket.title}</DialogTitle>
-                <DialogDescription className="text-zinc-400">{selectedTicket.description}</DialogDescription>
+                <DialogTitle className="text-xl font-semibold text-white">{selectedTicket.title}</DialogTitle>
+                {selectedTicket.description && (
+                  <DialogDescription className="text-zinc-400 text-sm mt-2">{selectedTicket.description}</DialogDescription>
+                )}
               </DialogHeader>
 
-              <div className="space-y-6 mt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-zinc-300">Status</label>
-                  <div className="flex gap-2 flex-wrap">
+              <div className="space-y-6 mt-6">
+                {/* Status */}
+                <div>
+                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Status</label>
+                  <div className="flex gap-2 mt-3 flex-wrap">
                     {statusColumns.map((col) => (
                       <Button
                         key={col.id}
-                        variant={selectedTicket.status === col.id ? "default" : "outline"}
+                        variant="outline"
                         size="sm"
                         onClick={() => changeStatus(selectedTicket.id, col.id)}
-                        className={selectedTicket.status === col.id ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
+                        className={`gap-2 ${selectedTicket.status === col.id 
+                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' 
+                          : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}
                       >
-                        <div className={`h-2 w-2 rounded-full ${col.color} mr-2`} />
+                        <div className={`w-2 h-2 rounded-full ${col.dotColor}`} />
                         {col.title}
                       </Button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-sm text-zinc-500 flex items-center gap-2">
-                      <User className="h-4 w-4" /> Assignee
+                {/* Meta Info */}
+                <div className="grid grid-cols-2 gap-6 p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
+                  <div>
+                    <label className="text-xs text-zinc-600 flex items-center gap-2 mb-1">
+                      <User className="w-3.5 h-3.5" /> Assignee
                     </label>
-                    <p className="font-medium text-zinc-200">{selectedTicket.assignee}</p>
+                    <div className="flex items-center gap-2">
+                      {getAgentIcon(selectedTicket.assignee || '')}
+                      <span className="font-medium text-zinc-200">{selectedTicket.assignee}</span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-sm text-zinc-500 flex items-center gap-2">
-                      <Tag className="h-4 w-4" /> Labels
+                  <div>
+                    <label className="text-xs text-zinc-600 flex items-center gap-2 mb-1">
+                      <Tag className="w-3.5 h-3.5" /> Labels
                     </label>
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex gap-1.5 flex-wrap">
                       {selectedTicket.labels?.map((label) => (
-                        <Badge key={label} variant="outline" className="border-zinc-700 text-zinc-400">{label}</Badge>
-                      ))}
+                        <span key={label} className="text-xs px-2 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/50">
+                          {label}
+                        </span>
+                      )) || <span className="text-zinc-600 text-sm">No labels</span>}
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
+                {/* Comments */}
+                <div>
+                  <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" />
                     Comments ({ticketComments.length})
                   </label>
-                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                  <div className="space-y-3 mt-4 max-h-60 overflow-y-auto">
                     {ticketComments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-zinc-800/50">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
-                          {comment.author === "Chiquitín" ? "🦀" : comment.author?.charAt(0) || "?"}
-                        </div>
+                      <div key={comment.id} className="flex gap-3 p-4 rounded-xl bg-zinc-800/30 border border-zinc-800/50">
+                        {getAgentIcon(comment.author || '')}
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="font-medium text-sm text-zinc-200">{comment.author}</span>
-                            <span className="text-xs text-zinc-600">
+                            <span className="text-[10px] text-zinc-600">
                               {new Date(comment.created_at).toLocaleString()}
                             </span>
                           </div>
-                          <p className="text-sm mt-1 text-zinc-400">{comment.content}</p>
+                          <p className="text-sm text-zinc-400">{comment.content}</p>
                         </div>
                       </div>
                     ))}
+                    {ticketComments.length === 0 && (
+                      <p className="text-sm text-zinc-600 text-center py-4">No comments yet</p>
+                    )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mt-4">
                     <Input
                       placeholder="Add a comment..."
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addComment()}
-                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                      className="bg-zinc-800/50 border-zinc-700/50 focus:border-amber-500/50 focus:ring-amber-500/20"
                     />
-                    <Button onClick={addComment} className="bg-amber-500 hover:bg-amber-600 text-black">Send</Button>
+                    <Button 
+                      onClick={addComment} 
+                      className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/20 border-0"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
