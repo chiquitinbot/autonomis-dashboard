@@ -3,19 +3,32 @@
 import { useState, useEffect } from 'react'
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { 
   Bot, 
-  CheckCircle2, 
-  Clock, 
   MessageSquare,
   Zap,
-  Search,
-  Mail,
-  Twitter,
-  TrendingUp,
-  Dumbbell
+  Plus,
+  User,
+  Tag,
+  Loader2,
+  X
 } from "lucide-react"
+import { supabase, type Ticket, type Comment } from "@/lib/supabase"
+
+// Types
+type Priority = "critical" | "high" | "medium" | "low"
+type Status = "backlog" | "todo" | "in-progress" | "review" | "done"
 
 // Agent data
 const agents = [
@@ -27,7 +40,7 @@ const agents = [
     status: 'working',
     badge: 'LEAD',
     statusReason: 'Managing daily operations. Twitter engagement active. Monitoring all agent activities.',
-    about: 'I am Chiquitín. Squad Lead and your personal AI assistant. A Mexican crab on a mission. I coordinate the team, handle social media, and make sure Bernardo stays on track with his goals. My mission: Help Bernardo achieve his half-marathon and 1 BTC goals.',
+    about: 'I am Chiquitín. Squad Lead and your personal AI assistant. A Mexican crab on a mission. I coordinate the team, handle social media, and make sure Bernardo stays on track with his goals.',
     skills: ['coordination', 'twitter', 'automation', 'fitness-tracking', 'crypto-alerts'],
     since: '2 hours ago'
   },
@@ -39,8 +52,8 @@ const agents = [
     status: 'working',
     badge: 'SPC',
     statusReason: 'Researching AI partnership opportunities. Currently analyzing Weights & Biases partner program.',
-    about: 'I am Apollo. Research Specialist. I find and analyze partnership opportunities for Nexaminds. I dig deep into partner programs, find key contacts, and prepare actionable intelligence.',
-    skills: ['research', 'partnerships', 'web-search', 'competitive-analysis', 'linkedin'],
+    about: 'I am Apollo. Research Specialist. I find and analyze partnership opportunities for Nexaminds.',
+    skills: ['research', 'partnerships', 'web-search', 'competitive-analysis'],
     since: '4 hours ago'
   },
   { 
@@ -51,7 +64,7 @@ const agents = [
     status: 'working',
     badge: 'INT',
     statusReason: 'Processing incoming emails. Last batch: 5 emails classified.',
-    about: 'I am Classifier. Email Intelligence Agent. I process, categorize, and label incoming emails so Bernardo can focus on what matters. Every email gets the right label.',
+    about: 'I am Classifier. Email Intelligence Agent. I process, categorize, and label incoming emails.',
     skills: ['email-processing', 'classification', 'gmail-api', 'labeling'],
     since: '15 min ago'
   },
@@ -63,57 +76,197 @@ const agents = [
     status: 'idle',
     badge: 'SPC',
     statusReason: 'Awaiting content tasks.',
-    about: 'I am Scribe. Content Creator. I write blog posts, documentation, and marketing copy. Currently on standby for content requests.',
+    about: 'I am Scribe. Content Creator. I write blog posts, documentation, and marketing copy.',
     skills: ['writing', 'content', 'documentation', 'copywriting'],
     since: '1 day ago'
   },
 ]
 
-// Task data with Kanban columns
-const initialTasks = {
-  inbox: [
-    { id: 't1', title: 'Research Datadog Partnership', description: 'Find partner program details and contacts', tags: ['research', 'partnerships'], agent: 'apollo', time: '2 hours ago' },
-    { id: 't2', title: 'Weekly Expense Report', description: 'Generate summary of January expenses', tags: ['finance', 'report'], agent: null, time: '1 day ago' },
-  ],
-  assigned: [
-    { id: 't3', title: 'Email Classification Optimization', description: 'Improve accuracy of email categorization', tags: ['email', 'ml'], agent: 'classifier', time: '3 hours ago' },
-    { id: 't4', title: 'Partnership Outreach - Arize AI', description: 'Draft initial contact email', tags: ['partnerships', 'outreach'], agent: 'apollo', time: '5 hours ago' },
-  ],
-  inProgress: [
-    { id: 't5', title: 'Twitter Engagement Campaign', description: 'Daily crypto/AI community engagement', tags: ['social', 'twitter'], agent: 'chiquitin', time: '1 hour ago' },
-    { id: 't6', title: 'Morning Briefing System', description: 'Automate daily briefing delivery', tags: ['automation'], agent: 'chiquitin', time: '2 hours ago' },
-  ],
-  review: [
-    { id: 't7', title: 'Gym Reminder with Images', description: 'PPL workout system with AI-generated images', tags: ['fitness', 'automation'], agent: 'chiquitin', time: '30 min ago' },
-  ],
-  done: [
-    { id: 't8', title: 'BTC Price Alerts Setup', description: 'Alert when BTC drops >5% or below $85K', tags: ['crypto', 'alerts'], agent: 'chiquitin', time: '1 day ago' },
-  ],
-}
+type Agent = typeof agents[number]
 
-// Activity feed data
-const activityFeed = [
-  { id: 'a1', type: 'task', agent: 'Chiquitín', action: 'completed', target: 'Gym Reminder with Images', time: '30 min ago' },
-  { id: 'a2', type: 'comment', agent: 'Apollo', action: 'commented on', target: 'Partnership Research - W&B', time: '1 hour ago' },
-  { id: 'a3', type: 'email', agent: 'Classifier', action: 'processed', target: '12 emails', time: '2 hours ago' },
-  { id: 'a4', type: 'task', agent: 'Chiquitín', action: 'started', target: 'Twitter Engagement', time: '3 hours ago' },
-  { id: 'a5', type: 'status', agent: 'Apollo', action: 'went', target: 'online', time: '4 hours ago' },
+// Status columns config
+const statusColumns: { id: Status; title: string; color: string }[] = [
+  { id: "backlog", title: "INBOX", color: "bg-zinc-500" },
+  { id: "todo", title: "ASSIGNED", color: "bg-blue-500" },
+  { id: "in-progress", title: "IN PROGRESS", color: "bg-amber-500" },
+  { id: "review", title: "REVIEW", color: "bg-purple-500" },
+  { id: "done", title: "DONE", color: "bg-emerald-500" },
 ]
 
-type Agent = typeof agents[number]
+const priorityConfig: Record<Priority, { label: string; color: string }> = {
+  critical: { label: "Critical", color: "bg-red-500 text-white" },
+  high: { label: "High", color: "bg-orange-500 text-white" },
+  medium: { label: "Medium", color: "bg-amber-500 text-black" },
+  low: { label: "Low", color: "bg-zinc-600 text-white" },
+}
 
 export default function MissionControlPage() {
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [tasks] = useState(initialTasks)
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [ticketComments, setTicketComments] = useState<Comment[]>([])
+  const [newComment, setNewComment] = useState("")
+  const [draggedTicket, setDraggedTicket] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showNewTicket, setShowNewTicket] = useState(false)
+  const [newTicket, setNewTicket] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as Priority,
+    assignee: "Chiquitín",
+    labels: [] as string[],
+  })
 
+  // Clock
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  const totalTasks = Object.values(tasks).flat().length
+  // Fetch data from Supabase
+  useEffect(() => {
+    fetchData()
+    
+    const ticketsChannel = supabase
+      .channel('tickets-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchData()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+        fetchData()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(ticketsChannel)
+    }
+  }, [])
+
+  const fetchData = async () => {
+    const { data: ticketsData } = await supabase
+      .from('tickets')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    
+    const { data: commentsData } = await supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: true })
+    
+    if (ticketsData) setTickets(ticketsData)
+    if (commentsData) setComments(commentsData)
+    setLoading(false)
+  }
+
+  // Update ticket comments when selected ticket changes
+  useEffect(() => {
+    if (selectedTicket) {
+      setTicketComments(comments.filter(c => c.ticket_id === selectedTicket.id))
+    }
+  }, [selectedTicket, comments])
+
+  // Drag and drop handlers
+  const handleDragStart = (ticketId: string) => {
+    setDraggedTicket(ticketId)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = async (status: Status) => {
+    if (draggedTicket) {
+      await supabase
+        .from('tickets')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', draggedTicket)
+      
+      setTickets(tickets.map(t => 
+        t.id === draggedTicket ? { ...t, status } : t
+      ))
+      setDraggedTicket(null)
+    }
+  }
+
+  const changeStatus = async (ticketId: string, newStatus: Status) => {
+    await supabase
+      .from('tickets')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', ticketId)
+    
+    setTickets(tickets.map(t => 
+      t.id === ticketId ? { ...t, status: newStatus } : t
+    ))
+    if (selectedTicket?.id === ticketId) {
+      setSelectedTicket({ ...selectedTicket, status: newStatus })
+    }
+  }
+
+  const addComment = async () => {
+    if (selectedTicket && newComment.trim()) {
+      const comment = {
+        ticket_id: selectedTicket.id,
+        author: "Bernardo",
+        content: newComment,
+      }
+      
+      const { data } = await supabase
+        .from('comments')
+        .insert([comment])
+        .select()
+      
+      if (data) {
+        setComments([...comments, data[0]])
+        setTicketComments([...ticketComments, data[0]])
+      }
+      
+      setNewComment("")
+    }
+  }
+
+  const createTicket = async () => {
+    if (!newTicket.title.trim()) return
+    
+    const ticketId = `TASK-${String(tickets.length + 1).padStart(3, '0')}`
+    
+    const { data } = await supabase
+      .from('tickets')
+      .insert([{
+        id: ticketId,
+        title: newTicket.title,
+        description: newTicket.description,
+        status: 'todo' as Status,
+        priority: newTicket.priority,
+        assignee: newTicket.assignee,
+        labels: newTicket.labels,
+      }])
+      .select()
+    
+    if (data) {
+      setTickets([data[0], ...tickets])
+    }
+    
+    setShowNewTicket(false)
+    setNewTicket({
+      title: "",
+      description: "",
+      priority: "medium",
+      assignee: "Chiquitín",
+      labels: [],
+    })
+  }
+
   const activeAgents = agents.filter(a => a.status === 'working').length
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -136,7 +289,7 @@ export default function MissionControlPage() {
               <div className="text-xs text-zinc-500 uppercase tracking-wider">Agents Active</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-white">{totalTasks}</div>
+              <div className="text-3xl font-bold text-white">{tickets.length}</div>
               <div className="text-xs text-zinc-500 uppercase tracking-wider">Tasks in Queue</div>
             </div>
             <div className="text-center border-l border-zinc-800 pl-8">
@@ -228,60 +381,96 @@ export default function MissionControlPage() {
         </aside>
 
         {/* Main Content - Kanban Board */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-x-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-amber-500" />
               <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Mission Queue</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-zinc-500">
-              <span className="px-2 py-1 rounded bg-zinc-800">{Object.values(tasks).flat().filter(t => t.agent).length} active</span>
-            </div>
+            <Button 
+              onClick={() => setShowNewTicket(true)}
+              className="bg-amber-500 hover:bg-amber-600 text-black"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Task
+            </Button>
           </div>
 
-          <div className="grid grid-cols-5 gap-4">
-            {/* Inbox Column */}
-            <KanbanColumn 
-              title="INBOX" 
-              count={tasks.inbox.length} 
-              tasks={tasks.inbox} 
-              color="zinc"
-            />
-            {/* Assigned Column */}
-            <KanbanColumn 
-              title="ASSIGNED" 
-              count={tasks.assigned.length} 
-              tasks={tasks.assigned}
-              color="blue"
-            />
-            {/* In Progress Column */}
-            <KanbanColumn 
-              title="IN PROGRESS" 
-              count={tasks.inProgress.length} 
-              tasks={tasks.inProgress}
-              color="amber"
-            />
-            {/* Review Column */}
-            <KanbanColumn 
-              title="REVIEW" 
-              count={tasks.review.length} 
-              tasks={tasks.review}
-              color="purple"
-            />
-            {/* Done Column */}
-            <KanbanColumn 
-              title="DONE" 
-              count={tasks.done.length} 
-              tasks={tasks.done}
-              color="emerald"
-            />
+          <div className="grid grid-cols-5 gap-4 min-w-[1000px]">
+            {statusColumns.map((column) => (
+              <div
+                key={column.id}
+                className="space-y-3"
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(column.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${column.color}`} />
+                    <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{column.title}</span>
+                  </div>
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-xs">
+                    {tickets.filter(t => t.status === column.id).length}
+                  </Badge>
+                </div>
+
+                <div className="space-y-2 min-h-[400px] rounded-lg bg-zinc-900/50 p-2">
+                  {tickets
+                    .filter(t => t.status === column.id)
+                    .map((ticket) => (
+                      <Card
+                        key={ticket.id}
+                        className="bg-zinc-800/50 border-zinc-700/50 hover:border-amber-500/50 transition-all cursor-pointer"
+                        draggable
+                        onDragStart={() => handleDragStart(ticket.id)}
+                        onClick={() => setSelectedTicket(ticket)}
+                      >
+                        <div className="p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-[10px] text-zinc-500 font-mono">{ticket.id}</span>
+                            <Badge className={`${priorityConfig[ticket.priority].color} text-[10px]`}>
+                              {priorityConfig[ticket.priority].label}
+                            </Badge>
+                          </div>
+                          <h4 className="text-sm font-medium text-zinc-100 mb-2 line-clamp-2">{ticket.title}</h4>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {ticket.labels?.slice(0, 2).map((label) => (
+                              <Badge 
+                                key={label} 
+                                variant="outline" 
+                                className="text-[10px] px-1.5 py-0 border-zinc-700 text-zinc-500"
+                              >
+                                {label}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-zinc-700/50">
+                            <div className="flex items-center gap-1 text-xs text-zinc-500">
+                              <MessageSquare className="h-3 w-3" />
+                              {comments.filter(c => c.ticket_id === ticket.id).length}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-sm">
+                                {ticket.assignee === "Chiquitín" ? "🦀" : 
+                                 ticket.assignee === "Apollo" ? "🔭" :
+                                 ticket.assignee === "Classifier" ? "📧" :
+                                 ticket.assignee === "Scribe" ? "✍️" : "👤"}
+                              </span>
+                              <span className="text-[10px] text-zinc-600">{ticket.assignee}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                </div>
+              </div>
+            ))}
           </div>
         </main>
 
-        {/* Right Sidebar - Agent Profile or Live Feed */}
+        {/* Right Sidebar - Agent Profile or Activity */}
         <aside className="w-80 border-l border-zinc-800 bg-zinc-900/30 min-h-[calc(100vh-73px)]">
           {selectedAgent ? (
-            /* Agent Profile View */
             <div className="p-4">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
@@ -290,13 +479,12 @@ export default function MissionControlPage() {
                 </div>
                 <button 
                   onClick={() => setSelectedAgent(null)}
-                  className="text-zinc-500 hover:text-zinc-300 text-xl"
+                  className="text-zinc-500 hover:text-zinc-300"
                 >
-                  ×
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Agent Header */}
               <div className="flex items-start gap-4 mb-6">
                 <div className="text-4xl">{selectedAgent.emoji}</div>
                 <div>
@@ -314,7 +502,6 @@ export default function MissionControlPage() {
                 </div>
               </div>
 
-              {/* Status */}
               <div className="mb-6">
                 <Badge 
                   className={`px-4 py-2 text-sm ${
@@ -328,20 +515,17 @@ export default function MissionControlPage() {
                 </Badge>
               </div>
 
-              {/* Status Reason */}
               <div className="mb-6 p-3 rounded-lg bg-zinc-800/50">
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Status Reason:</p>
                 <p className="text-sm text-zinc-300">{selectedAgent.statusReason}</p>
                 <p className="text-xs text-zinc-600 mt-2">Since {selectedAgent.since}</p>
               </div>
 
-              {/* About */}
               <div className="mb-6">
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">About</p>
                 <p className="text-sm text-zinc-400 leading-relaxed">{selectedAgent.about}</p>
               </div>
 
-              {/* Skills */}
               <div className="mb-6">
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Skills</p>
                 <div className="flex flex-wrap gap-2">
@@ -352,73 +536,32 @@ export default function MissionControlPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Tabs */}
-              <div className="flex gap-4 mb-4 border-b border-zinc-800 pb-2">
-                <button className="text-amber-400 text-sm flex items-center gap-1">
-                  <span className="text-amber-500">⚠</span> Attention
-                  <Badge className="bg-amber-500/20 text-amber-400 text-[10px] ml-1">2</Badge>
-                </button>
-                <button className="text-zinc-500 text-sm hover:text-zinc-300">Timeline</button>
-                <button className="text-zinc-500 text-sm hover:text-zinc-300">Messages</button>
-              </div>
-
-              <p className="text-xs text-zinc-600">Tasks & mentions needing {selectedAgent.name}&apos;s attention</p>
-
-              {/* Message Input */}
-              <div className="mt-6">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Send Message to {selectedAgent.name}</p>
-                <input 
-                  type="text"
-                  placeholder={`Message ${selectedAgent.name}... (@ to mention)`}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
-                />
-              </div>
             </div>
           ) : (
-            /* Live Feed View */
             <div className="p-4">
               <div className="flex items-center gap-2 mb-4">
                 <div className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Live Feed</span>
+                <span className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Recent Activity</span>
               </div>
 
-              <div className="flex gap-2 mb-4 flex-wrap">
-                <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 cursor-pointer">All</Badge>
-                <Badge variant="outline" className="border-zinc-700 text-zinc-500 cursor-pointer hover:bg-zinc-800">Tasks</Badge>
-                <Badge variant="outline" className="border-zinc-700 text-zinc-500 cursor-pointer hover:bg-zinc-800">Comments</Badge>
-                <Badge variant="outline" className="border-zinc-700 text-zinc-500 cursor-pointer hover:bg-zinc-800">Status</Badge>
-              </div>
-
-              <div className="flex gap-2 mb-4 flex-wrap">
-                <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 cursor-pointer">All Agents</Badge>
-                {agents.slice(0, 3).map(agent => (
-                  <Badge 
-                    key={agent.id} 
-                    variant="outline" 
-                    className="border-zinc-700 text-zinc-500 cursor-pointer hover:bg-zinc-800"
-                    onClick={() => setSelectedAgent(agent)}
-                  >
-                    {agent.emoji} {agent.name.split(' ')[0]}
-                  </Badge>
-                ))}
-              </div>
-
-              <ScrollArea className="h-[calc(100vh-250px)]">
+              <ScrollArea className="h-[calc(100vh-180px)]">
                 <div className="space-y-3">
-                  {activityFeed.map((activity) => (
-                    <div key={activity.id} className="p-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
+                  {comments.slice(-10).reverse().map((comment) => (
+                    <div key={comment.id} className="p-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors">
                       <div className="flex items-start gap-2">
                         <MessageSquare className="h-4 w-4 text-zinc-500 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm">
-                            <span className="font-medium text-amber-400">{activity.agent}</span>
+                            <span className="font-medium text-amber-400">{comment.author}</span>
                             {' '}
-                            <span className="text-zinc-400">{activity.action}</span>
+                            <span className="text-zinc-400">commented on</span>
                             {' '}
-                            <span className="text-zinc-200">&quot;{activity.target}&quot;</span>
+                            <span className="text-zinc-200">{comment.ticket_id}</span>
                           </p>
-                          <p className="text-xs text-zinc-600 mt-1">{activity.time}</p>
+                          <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{comment.content}</p>
+                          <p className="text-[10px] text-zinc-600 mt-1">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -429,87 +572,173 @@ export default function MissionControlPage() {
           )}
         </aside>
       </div>
-    </div>
-  )
-}
 
-// Kanban Column Component
-function KanbanColumn({ 
-  title, 
-  count, 
-  tasks, 
-  color 
-}: { 
-  title: string
-  count: number
-  tasks: Array<{
-    id: string
-    title: string
-    description: string
-    tags: string[]
-    agent: string | null
-    time: string
-  }>
-  color: 'zinc' | 'blue' | 'amber' | 'purple' | 'emerald'
-}) {
-  const colorClasses = {
-    zinc: 'bg-zinc-500',
-    blue: 'bg-blue-500',
-    amber: 'bg-amber-500',
-    purple: 'bg-purple-500',
-    emerald: 'bg-emerald-500',
-  }
-
-  const agentEmojis: Record<string, string> = {
-    chiquitin: '🦀',
-    apollo: '🔭',
-    classifier: '📧',
-    scribe: '✍️',
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`h-2 w-2 rounded-full ${colorClasses[color]}`} />
-          <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{title}</span>
-        </div>
-        <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-xs">{count}</Badge>
-      </div>
-
-      <div className="space-y-2">
-        {tasks.map((task) => (
-          <Card 
-            key={task.id} 
-            className="bg-zinc-800/50 border-zinc-700/50 hover:border-zinc-600 transition-colors cursor-pointer"
-          >
-            <div className="p-3">
-              <h4 className="text-sm font-medium text-zinc-100 mb-1">{task.title}</h4>
-              <p className="text-xs text-zinc-500 mb-2 line-clamp-2">{task.description}</p>
-              <div className="flex flex-wrap gap-1 mb-2">
-                {task.tags.map((tag) => (
-                  <Badge 
-                    key={tag} 
-                    variant="outline" 
-                    className="text-[10px] px-1.5 py-0 border-zinc-700 text-zinc-500"
+      {/* New Task Modal */}
+      <Dialog open={showNewTicket} onOpenChange={setShowNewTicket}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>Create New Task</DialogTitle>
+            <DialogDescription className="text-zinc-400">Add a new task to the mission queue</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-zinc-300">Title</label>
+              <Input
+                value={newTicket.title}
+                onChange={(e) => setNewTicket({ ...newTicket, title: e.target.value })}
+                placeholder="Task title..."
+                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-300">Description</label>
+              <Textarea
+                value={newTicket.description}
+                onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                placeholder="Task description..."
+                className="bg-zinc-800 border-zinc-700 text-zinc-100"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-300">Priority</label>
+              <div className="flex gap-2 mt-1">
+                {(["critical", "high", "medium", "low"] as Priority[]).map((p) => (
+                  <Button
+                    key={p}
+                    variant={newTicket.priority === p ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNewTicket({ ...newTicket, priority: p })}
+                    className={newTicket.priority === p ? priorityConfig[p].color : "border-zinc-700 text-zinc-400"}
                   >
-                    {tag}
-                  </Badge>
+                    {p}
+                  </Button>
                 ))}
               </div>
-              <div className="flex items-center justify-between">
-                {task.agent && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-sm">{agentEmojis[task.agent]}</span>
-                    <span className="text-xs text-zinc-500 capitalize">{task.agent}</span>
-                  </div>
-                )}
-                <span className="text-[10px] text-zinc-600">{task.time}</span>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-zinc-300">Assignee</label>
+              <div className="flex gap-2 mt-1 flex-wrap">
+                {agents.map((agent) => (
+                  <Button
+                    key={agent.id}
+                    variant={newTicket.assignee === agent.name ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setNewTicket({ ...newTicket, assignee: agent.name })}
+                    className={newTicket.assignee === agent.name ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
+                  >
+                    {agent.emoji} {agent.name}
+                  </Button>
+                ))}
+                <Button
+                  variant={newTicket.assignee === "Bernardo" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setNewTicket({ ...newTicket, assignee: "Bernardo" })}
+                  className={newTicket.assignee === "Bernardo" ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
+                >
+                  👤 Bernardo
+                </Button>
               </div>
             </div>
-          </Card>
-        ))}
-      </div>
+            <Button onClick={createTicket} className="w-full bg-amber-500 hover:bg-amber-600 text-black">
+              Create Task
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ticket Detail Modal */}
+      <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 text-zinc-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedTicket && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-zinc-500 font-mono">{selectedTicket.id}</span>
+                  <Badge className={priorityConfig[selectedTicket.priority].color}>
+                    {priorityConfig[selectedTicket.priority].label}
+                  </Badge>
+                </div>
+                <DialogTitle className="text-xl text-zinc-100">{selectedTicket.title}</DialogTitle>
+                <DialogDescription className="text-zinc-400">{selectedTicket.description}</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-zinc-300">Status</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {statusColumns.map((col) => (
+                      <Button
+                        key={col.id}
+                        variant={selectedTicket.status === col.id ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => changeStatus(selectedTicket.id, col.id)}
+                        className={selectedTicket.status === col.id ? "bg-amber-500 text-black" : "border-zinc-700 text-zinc-400"}
+                      >
+                        <div className={`h-2 w-2 rounded-full ${col.color} mr-2`} />
+                        {col.title}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-zinc-500 flex items-center gap-2">
+                      <User className="h-4 w-4" /> Assignee
+                    </label>
+                    <p className="font-medium text-zinc-200">{selectedTicket.assignee}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm text-zinc-500 flex items-center gap-2">
+                      <Tag className="h-4 w-4" /> Labels
+                    </label>
+                    <div className="flex gap-1 flex-wrap">
+                      {selectedTicket.labels?.map((label) => (
+                        <Badge key={label} variant="outline" className="border-zinc-700 text-zinc-400">{label}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Comments ({ticketComments.length})
+                  </label>
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {ticketComments.map((comment) => (
+                      <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-zinc-800/50">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-xs text-white font-medium flex-shrink-0">
+                          {comment.author === "Chiquitín" ? "🦀" : comment.author?.charAt(0) || "?"}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-zinc-200">{comment.author}</span>
+                            <span className="text-xs text-zinc-600">
+                              {new Date(comment.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-1 text-zinc-400">{comment.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add a comment..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addComment()}
+                      className="bg-zinc-800 border-zinc-700 text-zinc-100"
+                    />
+                    <Button onClick={addComment} className="bg-amber-500 hover:bg-amber-600 text-black">Send</Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
